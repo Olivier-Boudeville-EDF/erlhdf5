@@ -8,7 +8,7 @@ ERLANG_HOME=/usr/local/lib/erlang
 all:
 
 # etags:
-# 	cd /path/to/my/project
-#   	find . | grep ".*\.\(hh\|hxx\|cc\)" | xargs etags -f TAGS
-# 	# (find $(DEPS)/hdf5/src -name "*.h"; $(DEPS)/hdf5/src -name "*.c") > FILES
-# 	# cat FILES | etags -
+#	cd /path/to/my/project
+#		find . | grep ".*\.\(hh\|hxx\|cc\)" | xargs etags -f TAGS
+#	# (find $(DEPS)/hdf5/src -name "*.h"; $(DEPS)/hdf5/src -name "*.c") > FILES
+#	# cat FILES | etags -

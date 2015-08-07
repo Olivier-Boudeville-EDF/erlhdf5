@@ -2,12 +2,12 @@
 
 /* This file is part of erlhdf5 */
 
-/* elrhdf5 is free software: you can redistribute it and/or modify */
+/* erlhdf5 is free software: you can redistribute it and/or modify */
 /* it under the terms of the GNU Lesser General Public License as */
 /* published by the Free Software Foundation, either version 3 of */
 /* the License, or (at your option) any later version. */
 
-/* elrhdf5 is distributed in the hope that it will be useful, */
+/* erlhdf5 is distributed in the hope that it will be useful, */
 /* but WITHOUT ANY WARRANTY; without even the implied warranty of */
 /* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the */
 /* GNU Lesser General Public License for more details. */
@@ -25,43 +25,53 @@
 #include "dbg.h"
 #include "erlhdf5.h"
 
-// H5S: Dataspace Interface
 
-// creates a new simple dataspace and opens it for access
-ERL_NIF_TERM h5screate_simple(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// H5S: Dataspace Interface, dataspace definition and access routines.
+
+
+// Creates a new simple dataspace, and opens it for access.
+ERL_NIF_TERM h5screate_simple( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] )
 {
-  hid_t dataspace_id;
-  ERL_NIF_TERM ret;
-  const ERL_NIF_TERM *terms;
+
+  const ERL_NIF_TERM *terms ;
   int rank; // number of dimensions of dataspace
-  hsize_t* dimsf; // array specifiying the size of each dimension
   int arity;
 
-  // parse arguments
-  check(argc == 2, "Incorrent number of arguments");
-  check(enif_get_int(env, argv[0], &rank ), "Can't get rank from argv");
-  check(enif_get_tuple(env, argv[1], &arity, &terms), "Can't get terms from argv");
-  // make sure that rank is matching arity
-  check(rank <= 2, "does not support > 2 dimensions");
+  // Parses arguments:
+  check( argc == 2, "Incorrect number of arguments" ) ;
+  check( enif_get_int( env, argv[0], &rank ), "Cannot get rank from argv" ) ;
+  check( enif_get_tuple( env, argv[1], &arity, &terms ),
+	"Cannot get terms from argv");
 
-  // allocate array of size rank
-  dimsf = (hsize_t*) malloc(arity * sizeof(hsize_t));
-  check(!convert_nif_to_hsize_array(env, arity, terms, dimsf), "can't convert dims arr");
+  // Makes sure that rank is matching arity:
+  check( rank <= 2, "does not support more than 2 dimensions" ) ;
 
-  // create a new file using default properties
-  dataspace_id = H5Screate_simple(rank, dimsf, NULL);
-  check(dataspace_id > 0, "Failed to create dataspace.");
+  // Allocates array of size rank, specifiying the size of each dimension:
+  hsize_t * dimsf = (hsize_t*) enif_alloc( arity * sizeof( hsize_t ) ) ;
 
-  // cleanup
-  free(dimsf);
-  ret = enif_make_int(env, dataspace_id);
-  return enif_make_tuple2(env, ATOM_OK, ret);
+  check( ! convert_nif_to_hsize_array( env, arity, terms, dimsf ),
+	"Cannot convert dimensions array" ) ;
+
+  // Creates a new dataspace, using default properties:
+  hid_t dataspace_id = H5Screate_simple( rank, dimsf, NULL ) ;
+  check( dataspace_id > 0, "Failed to create dataspace." ) ;
+
+  // Clean-up:
+  enif_free( dimsf ) ;
+  ERL_NIF_TERM ret = enif_make_int( env, dataspace_id ) ;
+  return enif_make_tuple2( env, atom_ok, ret ) ;
 
  error:
-  if(dataspace_id) H5Sclose(dataspace_id);
-  if(dimsf) free(dimsf);
-  return error_tuple(env, "Can not create dataspace");
-};
+  if ( dataspace_id )
+	H5Sclose( dataspace_id ) ;
+
+  if ( dimsf )
+	enif_free( dimsf ) ;
+
+  return error_tuple( env, "Cannot create dataspace" ) ;
+
+}
 
 
 // close
@@ -70,14 +80,14 @@ ERL_NIF_TERM h5sclose(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   hid_t dataspace_id;
 
   // parse arguments
-  check(argc == 1, "Incorrent number of arguments");
-  check(enif_get_int(env, argv[0], &dataspace_id), "Can't get resource from argv");
+  check(argc == 1, "Incorrect number of arguments");
+  check(enif_get_int(env, argv[0], &dataspace_id), "cannot get resource from argv");
   // close properties list
   check(!H5Sclose(dataspace_id), "Failed to close dataspace.");
-  return ATOM_OK;
+  return atom_ok;
 
  error:
-  return error_tuple(env, "Can not close dataspace");
+  return error_tuple(env, "cannot close dataspace");
 };
 
 
@@ -88,13 +98,13 @@ ERL_NIF_TERM h5sget_simple_extent_ndims(ErlNifEnv* env, int argc, const ERL_NIF_
   int ndims;
 
   // parse arguments
-  check(argc == 1, "Incorrent number of arguments");
-  check(enif_get_int(env, argv[0], &dataspace_id), "Can't get resource from argv");
+  check(argc == 1, "Incorrect number of arguments");
+  check(enif_get_int(env, argv[0], &dataspace_id), "cannot get resource from argv");
 
   // get ndims
   ndims = H5Sget_simple_extent_ndims(dataspace_id);
   check(ndims > 0, "Failed to determine dataspace dimensions.");
-  return enif_make_tuple2(env, ATOM_OK, enif_make_int(env, ndims));
+  return enif_make_tuple2(env, atom_ok, enif_make_int(env, ndims));
 
  error:
   return error_tuple(env, "Failed to determine dataspace dimensions");
@@ -115,13 +125,13 @@ ERL_NIF_TERM h5sget_simple_extent_dims(ErlNifEnv* env, int argc, const ERL_NIF_T
   int rank;
 
   // parse arguments
-  check(argc == 2, "Incorrent number of arguments");
-  check(enif_get_int(env, argv[0], &dataspace_id), "Can't get resource from argv");
-  check(enif_get_int(env, argv[1], &rank), "Can't get rank from argv");
+  check(argc == 2, "Incorrect number of arguments");
+  check(enif_get_int(env, argv[0], &dataspace_id), "cannot get resource from argv");
+  check(enif_get_int(env, argv[1], &rank), "cannot get rank from argv");
 
   // allocate space for dims array to store a number of dimensions
-  dims = malloc(rank * sizeof(hsize_t));
-  maxdims = malloc(rank * sizeof(hsize_t));
+  dims = enif_alloc(rank * sizeof(hsize_t));
+  maxdims = enif_alloc(rank * sizeof(hsize_t));
 
   // get a number of dims from dataspace
   status = H5Sget_simple_extent_dims(dataspace_id, dims, maxdims);
@@ -132,20 +142,20 @@ ERL_NIF_TERM h5sget_simple_extent_dims(ErlNifEnv* env, int argc, const ERL_NIF_T
   maxdims_arr = (ERL_NIF_TERM*)enif_alloc(sizeof(ERL_NIF_TERM) * rank);
 
   // convert arrays into array of ERL_NIF_TERM
-  check(!convert_array_to_nif_array(env, rank, dims, dims_arr), "can't convert array");
-  check(!convert_array_to_nif_array(env, rank, maxdims, maxdims_arr), "can't convert array");
+  check(!convert_array_to_nif_array(env, rank, dims, dims_arr), "cannot convert array");
+  check(!convert_array_to_nif_array(env, rank, maxdims, maxdims_arr), "cannot convert array");
 
    // convert arrays to list
   dims_list = enif_make_list_from_array(env, dims_arr, rank);
   maxdims_list = enif_make_list_from_array(env, maxdims_arr, rank);
 
    // cleanup
-  free(dims);
-  free(maxdims);
-  return enif_make_tuple3(env, ATOM_OK, dims_list, maxdims_list);
+  enif_free(dims);
+  enif_free(maxdims);
+  return enif_make_tuple3(env, atom_ok, dims_list, maxdims_list);
 
  error:
-  if(dims) free(dims);
-  if(maxdims) free(maxdims);
-  return error_tuple(env, "Can not get dims");
+  if(dims) enif_free(dims);
+  if(maxdims) enif_free(maxdims);
+  return error_tuple(env, "cannot get dims");
 };

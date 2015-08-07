@@ -4,20 +4,20 @@
 -include("../include/erlhdf5.hrl").
 
 erlhdf5_prop_list_create_test_() ->
-    {setup, local,
-     fun create/0,
-     fun close/1,
-     fun run/1}.
+	{setup, local,
+	 fun create/0,
+	 fun close/1,
+	 fun run/1}.
 
 create() ->
-    {ok, H} = erlhdf5:h5tcopy('H5T_NATIVE_INT'),
-    H.
+	{ok, H} = erlhdf5:h5tcopy('H5T_NATIVE_INT'),
+	H.
 
 close(H) ->
-    ok = erlhdf5:h5tclose(H).
+	ok = erlhdf5:h5tclose(H).
 
 run(_P) ->
-    [
-     %?_assertMatch({ok, _}, erlhdf5:h5screate(2, {2, 2}))
-     ?_assertMatch({ok, _}, {ok, ok})
-    ].
+	[
+	 %?_assertMatch({ok, _}, erlhdf5:h5screate(2, {2, 2}))
+	 ?_assertMatch({ok, _}, {ok, ok})
+	].

@@ -2,12 +2,12 @@
 
 /* This file is part of erlhdf5 */
 
-/* elrhdf5 is free software: you can redistribute it and/or modify */
+/* erlhdf5 is free software: you can redistribute it and/or modify */
 /* it under the terms of the GNU Lesser General Public License as */
 /* published by the Free Software Foundation, either version 3 of */
 /* the License, or (at your option) any later version. */
 
-/* elrhdf5 is distributed in the hope that it will be useful, */
+/* erlhdf5 is distributed in the hope that it will be useful, */
 /* but WITHOUT ANY WARRANTY; without even the implied warranty of */
 /* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the */
 /* GNU Lesser General Public License for more details. */
@@ -25,46 +25,51 @@
 #include "dbg.h"
 #include "erlhdf5.h"
 
-// H5P: Property List Interface
+
+// H5P: Property List Interface, object property list manipulation routines.
+
+
+// Signature:
 static int convert_property_flag(char* file_flags, unsigned *flags);
+
 
 // convert
 static int convert_property_flag(char* file_flags, unsigned *flags)
 {
   if(strncmp(file_flags, "H5P_OBJECT_CREATE", MAXBUFLEN) == 0)
-    *flags = H5P_OBJECT_CREATE;
+	*flags = H5P_OBJECT_CREATE;
   else if(strncmp(file_flags, "H5P_FILE_CREATE", MAXBUFLEN) == 0)
-    *flags = H5P_FILE_CREATE;
+	*flags = H5P_FILE_CREATE;
   else if(strncmp(file_flags, "H5P_FILE_ACCESS", MAXBUFLEN) == 0)
-    *flags = H5P_FILE_ACCESS;
+	*flags = H5P_FILE_ACCESS;
   else if(strncmp(file_flags, "H5P_DATASET_CREATE", MAXBUFLEN) == 0)
-    *flags = H5P_DATASET_CREATE;
+	*flags = H5P_DATASET_CREATE;
   else if(strncmp(file_flags, "H5P_DATASET_ACCESS", MAXBUFLEN) == 0)
-    *flags = H5P_DATASET_ACCESS;
+	*flags = H5P_DATASET_ACCESS;
   else if(strncmp(file_flags, "H5P_DATASET_XFER", MAXBUFLEN) == 0)
-    *flags = H5P_DATASET_XFER;
+	*flags = H5P_DATASET_XFER;
   else if(strncmp(file_flags, "H5P_FILE_MOUNT", MAXBUFLEN) == 0)
-    *flags = H5P_FILE_MOUNT;
+	*flags = H5P_FILE_MOUNT;
   else if(strncmp(file_flags, "H5P_GROUP_CREATE", MAXBUFLEN) == 0)
-    *flags = H5P_GROUP_CREATE;
+	*flags = H5P_GROUP_CREATE;
   else if(strncmp(file_flags, "H5P_GROUP_ACCESS", MAXBUFLEN) == 0)
-    *flags = H5P_GROUP_ACCESS;
+	*flags = H5P_GROUP_ACCESS;
   else if(strncmp(file_flags, "H5P_DATATYPE_CREATE", MAXBUFLEN) == 0)
-    *flags = H5P_DATATYPE_CREATE;
+	*flags = H5P_DATATYPE_CREATE;
   else if(strncmp(file_flags, "H5P_DATATYPE_ACCESS", MAXBUFLEN) == 0)
-    *flags = H5P_DATATYPE_ACCESS;
+	*flags = H5P_DATATYPE_ACCESS;
   else if(strncmp(file_flags, "H5P_STRING_CREATE", MAXBUFLEN) == 0)
-    *flags = H5P_STRING_CREATE;
+	*flags = H5P_STRING_CREATE;
   else if(strncmp(file_flags, "H5P_ATTRIBUTE_CREATE", MAXBUFLEN) == 0)
-    *flags = H5P_ATTRIBUTE_CREATE;
+	*flags = H5P_ATTRIBUTE_CREATE;
   else if(strncmp(file_flags, "H5P_OBJECT_COPY", MAXBUFLEN) == 0)
-    *flags = H5P_OBJECT_COPY;
+	*flags = H5P_OBJECT_COPY;
   else if(strncmp(file_flags, "H5P_LINK_CREATE", MAXBUFLEN) == 0)
-    *flags = H5P_LINK_CREATE;
+	*flags = H5P_LINK_CREATE;
   else if(strncmp(file_flags, "H5P_LINK_ACCESS", MAXBUFLEN) == 0)
-    *flags = H5P_LINK_ACCESS;
+	*flags = H5P_LINK_ACCESS;
   else
-    sentinel("Unknown properties flag %s", file_flags);
+	sentinel("Unknown properties flag %s", file_flags);
 
   return 0;
 
@@ -95,7 +100,7 @@ ERL_NIF_TERM h5pcreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   check(dcpl_id > 0, "Failed to create property list.");
 
   // create a resource to pass reference to id back to erlang
-  res = enif_alloc_resource(RES_TYPE, sizeof(Handle));
+  res = enif_alloc_resource(resource_type, sizeof(Handle));
   check(res, "Failed to allocate resource for type %s", "Handle");
 
   // add ref to resource
@@ -105,7 +110,7 @@ ERL_NIF_TERM h5pcreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   // cleanup
   enif_release_resource(res);
 
-  return enif_make_tuple2(env, ATOM_OK, ret);
+  return enif_make_tuple2(env, atom_ok, ret);
 
  error:
   if(dcpl_id) H5Pclose(dcpl_id);
@@ -121,14 +126,14 @@ ERL_NIF_TERM h5pclose(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
   // parse arguments
   check(argc == 1, "Incorrent number of arguments");
-  check(enif_get_resource(env, argv[0], RES_TYPE, (void**) &res) != 0,	\
+  check(enif_get_resource(env, argv[0], resource_type, (void**) &res) != 0,	\
 	"Can't get resource from argv");
 
   // close properties list
   err = H5Pclose(res->id);
   check(err == 0, "Failed to close properties list.");
 
-  return ATOM_OK;
+  return atom_ok;
 
  error:
   return error_tuple(env, "Can not close properties list");

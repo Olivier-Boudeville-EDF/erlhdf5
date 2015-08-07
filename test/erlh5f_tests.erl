@@ -23,22 +23,22 @@
 
 
 erlhdf5_file_create_test_() ->
-    {setup, local,
-     fun create/0,
-     fun close/1,
-     fun run/1}.
+	{setup, local,
+	 fun create/0,
+	 fun close/1,
+	 fun run/1}.
 
 create() ->
-    {ok, H} = erlhdf5:h5fcreate("test_file_hdf5.h5", 'H5F_ACC_TRUNC'),
-    H.
+	{ok, H} = erlhdf5:h5fcreate("test_file_hdf5.h5", 'H5F_ACC_TRUNC'),
+	H.
 
 close(H) ->
-    ok = erlhdf5:h5fclose(H).
+	ok = erlhdf5:h5fclose(H).
 
 run(_P) ->
-    [
-     %{ok, _H} = erlhdf5:h5fopen("test_file_hdf5.h5", 'H5F_ACC_TRUNC'),
+	[
+	 %{ok, _H} = erlhdf5:h5fopen("test_file_hdf5.h5", 'H5F_ACC_TRUNC'),
 
-     %?_assertMatch({ok, _}, erlhdf5:h5screate_simple(2, {2, 2}))
-     ?_assertMatch({ok, _}, {ok, ok})
-    ].
+	 %?_assertMatch({ok, _}, erlhdf5:h5screate_simple(2, {2, 2}))
+	 ?_assertMatch({ok, _}, {ok, ok})
+	].
