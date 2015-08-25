@@ -82,7 +82,9 @@ All failure cases should deal with memory allocation, to avoid leaks.
 
 ## Bugs
 
-When writing `Data = [ { 1, 2, 3, 4 }, { 5, 6, 7, 8 }, { 9, 10, 11, 12 } ]`, in:
+With the original binding, there was a bug in the writing of datasets.
+
+Indeed, when writing `Data = [ { 1, 2, 3, 4 }, { 5, 6, 7, 8 }, { 9, 10, 11, 12 } ]`, in:
 
 ```
 { ok, Space } = erlhdf5:h5screate_simple( 2, { 3, 4 } ),
