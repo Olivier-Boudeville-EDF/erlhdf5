@@ -131,7 +131,7 @@ ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
 
 	unsigned int j ;
 
-	// Iterate through the elements of this tuple and store them:
+	// Iterates through the elements of this tuple and stores them:
 	for( j = 0; j < tuple_size; j++ )
 	{
 
@@ -152,11 +152,16 @@ ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
   }
 
   // Finally writes the translated data to the dataset:
-  if( H5Dwrite( dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-	  buffer_for_hdf ) < 0 )
+  if( H5Dwrite(
+	  /* target */ dataset_id,
+	  /* cell type */ H5T_NATIVE_DOUBLE,
+	  /* memory and selection dataspace */ H5S_ALL,
+	  /* selection within the file dataset's dataspace */ H5S_ALL,
+	  /* default data transfer properties */ H5P_DEFAULT,
+	  /* source location */ buffer_for_hdf ) < 0 )
   {
 	enif_free( buffer_for_hdf ) ;
-	return error_tuple( env, "Failed to write into dataset." ) ;
+	return error_tuple( env, "Failed to write into dataset" ) ;
   }
 
   enif_free( buffer_for_hdf ) ;
@@ -185,7 +190,7 @@ ERL_NIF_TERM write_int_array( hid_t dataset_id, ErlNifEnv* env,
 
   const ERL_NIF_TERM *terms ;
 
-  // Go through each list element, and unpack it:
+  // Goes through each list element, and unpack it:
   while ( enif_get_list_cell( env, tuple_list, &head, &tail ) )
   {
 
@@ -207,7 +212,7 @@ ERL_NIF_TERM write_int_array( hid_t dataset_id, ErlNifEnv* env,
 
 	unsigned int j ;
 
-	// Iterate through the elements of this tuple and store them:
+	// Iterates through the elements of this tuple and stores them:
 	for( j = 0; j < tuple_size; j++ )
 	{
 
@@ -232,7 +237,7 @@ ERL_NIF_TERM write_int_array( hid_t dataset_id, ErlNifEnv* env,
 	  buffer_for_hdf ) < 0 )
   {
 	enif_free( buffer_for_hdf ) ;
-	return error_tuple( env, "Failed to write into dataset." ) ;
+	return error_tuple( env, "Failed to write into dataset" ) ;
   }
 
   enif_free( buffer_for_hdf ) ;

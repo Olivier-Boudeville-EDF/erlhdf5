@@ -102,8 +102,9 @@ ERL_NIF_TERM h5dcreate( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
   dcpl_id = dcpl_res->id ;
 
   // Creates a new file, using default properties:
-  ds_id = H5Dcreate( file_id, ds_name, type_id, dataspace_id, H5P_DEFAULT,
-	dcpl_id, H5P_DEFAULT ) ;
+  ds_id = H5Dcreate( file_id, ds_name, type_id, dataspace_id,
+	/* Link creation property list */ H5P_DEFAULT, dcpl_id,
+	/* Dataset access property list */ H5P_DEFAULT ) ;
 
   check( ds_id > 0, "Failed to create dataset." ) ;
 
@@ -121,51 +122,59 @@ ERL_NIF_TERM h5dcreate( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 
 
 
-// Opens an existing dataset.
-ERL_NIF_TERM h5dopen(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// Opens from specified file an existing dataset.
+ERL_NIF_TERM h5dopen( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 {
-  ERL_NIF_TERM ret;
-  char ds_name[MAXBUFLEN];
-  hid_t file_id;
-  hid_t ds_id;
 
-  // parse arguments
-  check(argc == 2, "Incorrect number of arguments");
-  check(enif_get_int(env, argv[0], &file_id),
-	"Cannot get file resource from argv");
+  ERL_NIF_TERM ret ;
+  char ds_name[ MAXBUFLEN ] ;
+  hid_t file_id ;
+  hid_t ds_id ;
 
-  check(enif_get_string(env, argv[1], ds_name, sizeof(ds_name), ERL_NIF_LATIN1),
-	"Cannot get dataset name from argv" ) ;
+  // Parses arguments:
+  check( argc == 2, "Incorrect number of arguments" ) ;
+  check( enif_get_int( env, argv[0], &file_id ),
+	"Cannot get file resource from argv" ) ;
 
-  // create a new file using default properties
-  ds_id = H5Dopen(file_id, ds_name, H5P_DEFAULT);
-  check(ds_id > 0, "Failed to create dataset.");
+  check( enif_get_string( env, argv[1], ds_name, sizeof( ds_name ),
+	  ERL_NIF_LATIN1 ), "Cannot get dataset name from argv" ) ;
 
-  ret = enif_make_int(env, ds_id);
-  return enif_make_tuple2(env, atom_ok, ret);
+  // Creates a new file handle, using default properties:
+  ds_id = H5Dopen( file_id, ds_name, H5P_DEFAULT ) ;
+  check( ds_id > 0, "Failed to open dataset." ) ;
+
+  ret = enif_make_int( env, ds_id ) ;
+
+  return enif_make_tuple2( env, atom_ok, ret ) ;
 
  error:
-  if(ds_id) H5Dclose(ds_id);
-  return error_tuple(env, "cannot create dataset");
-};
+  if( ds_id )
+	H5Dclose( ds_id ) ;
+  return error_tuple( env, "Cannot open dataset" ) ;
+
+}
 
 
-// close
-ERL_NIF_TERM h5dclose(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+
+// Closes specified dataset.
+ERL_NIF_TERM h5dclose( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 {
-  hid_t ds_id;
 
-  // parse arguments
-  check(argc == 1, "Incorrect number of arguments");
-  check(enif_get_int(env, argv[0], &ds_id), "cannot get resource from argv");
+  hid_t ds_id ;
 
-  // close properties list
-  check(!H5Dclose(ds_id), "Failed to close dataset.");
-  return atom_ok;
+  // Parse arguments:
+  check( argc == 1, "Incorrect number of arguments" ) ;
+  check( enif_get_int( env, argv[0], &ds_id ),
+	"Cannot get dataset handle from argv" ) ;
+
+  check( ! H5Dclose( ds_id ), "Failed to close dataset.") ;
+  return atom_ok ;
 
  error:
-  return error_tuple(env, "cannot close dataset");
-};
+  return error_tuple( env, "Cannot close dataset" ) ;
+
+}
+
 
 
 // Determines whether space has been allocated for specified dataset.
@@ -279,7 +288,7 @@ ERL_NIF_TERM h5dwrite( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
   hid_t dataset_id ;
 
   if ( ! enif_get_int( env, argv[0], &dataset_id ) )
-	return error_tuple( env, "Cannot get dataset resource from argv" ) ;
+	return error_tuple( env, "Cannot get dataset handle from argv" ) ;
 
   ERL_NIF_TERM tuple_list = argv[1] ;
 
@@ -288,10 +297,10 @@ ERL_NIF_TERM h5dwrite( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
   unsigned int list_length ;
 
   /*
-	Gets the dimentions of input list : length of list is U, and size of tuples
-	is V. All tuples are expected to be of the same size (same number of
-	elements, V) and homogeneous (all their elements are of the same type,
-	typically int or float).
+	Gets the dimensions of input list : length of list is U (i.e. there are U
+	data tuples), and size of tuples is V. All tuples are expected to be of the
+	same size (same number of elements, V) and homogeneous (all their elements
+	are of the same type, typically native int or float).
    */
   if ( ! enif_get_list_length( env, tuple_list, &list_length ) )
 	return error_tuple( env, "Cannot get length of input list." ) ;
@@ -303,7 +312,10 @@ ERL_NIF_TERM h5dwrite( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 
   /*
    * Determines once for all the size of tuples (i.e. V), based on the first
-   * element:
+   * element found:
+   *
+   * Note: we could/should check that all tuples have the same size and that
+   * their elements are all of the same type.
    *
    */
 

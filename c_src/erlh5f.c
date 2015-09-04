@@ -25,10 +25,12 @@
 #include "dbg.h"
 #include "erlhdf5.h"
 
+
 // H5F: File interface
 
 // prototype
 static int convert_access_flag(char* file_flags, unsigned *flags);
+
 
 // convert
 static int convert_access_flag(char* file_flags, unsigned *flags)
@@ -80,51 +82,68 @@ ERL_NIF_TERM h5fcreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   return error_tuple(env, "Cannot create file");
 };
 
-// open file
-ERL_NIF_TERM h5fopen(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+
+
+// Opens specified HDF5 file.
+ERL_NIF_TERM h5fopen( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 {
-  hid_t file_id;
-  ERL_NIF_TERM ret;
-  char file_name[MAXBUFLEN];
-  char file_access_flags[MAXBUFLEN];
-  unsigned flags;
 
-  // parse arguments
-  check(argc == 2, "Incorrect number of arguments");
-  check(enif_get_string(env, argv[0], file_name, sizeof(file_name), ERL_NIF_LATIN1), \
-	"Cannot get file name from argv");
-  check(enif_get_atom(env, argv[1], file_access_flags, sizeof(file_access_flags), ERL_NIF_LATIN1), \
-	"Cannot get file_access_flag from argv");
+  hid_t file_id ;
 
-  // convert access flag to format which hdf5 api understand
-  check(!convert_access_flag(file_access_flags, &flags), "Failed to convert access flag");
+  ERL_NIF_TERM ret ;
 
-  // create a new file using default properties
-  file_id = H5Fopen(file_name, flags, H5P_DEFAULT);
-  check(file_id > 0, "Failed to open %s.", file_name);
+  char file_name[ MAXBUFLEN ] ;
 
-  ret = enif_make_int(env, file_id);
-  return enif_make_tuple2(env, atom_ok, ret);
+  char file_access_flags[ MAXBUFLEN ] ;
+
+  unsigned flags ;
+
+  check( argc == 2, "Incorrect number of arguments" ) ;
+
+  check( enif_get_string( env, argv[0], file_name, sizeof( file_name ),
+	  ERL_NIF_LATIN1 ), "Cannot get file name from argv" ) ;
+
+  check( enif_get_atom( env, argv[1], file_access_flags,
+	  sizeof( file_access_flags ), ERL_NIF_LATIN1 ),
+	"Cannot get file_access_flag from argv" ) ;
+
+  // Converts access flag to a format which the HDF5 library understands:
+  check( ! convert_access_flag( file_access_flags, &flags ),
+	"Failed to convert access flag" ) ;
+
+  // Creates a new file object, using default properties:
+  file_id = H5Fopen( file_name, flags, H5P_DEFAULT ) ;
+  check( file_id > 0, "Failed to open %s.", file_name ) ;
+
+  ret = enif_make_int( env, file_id ) ;
+  return enif_make_tuple2( env, atom_ok, ret ) ;
 
  error:
-  if(file_id) H5Fclose (file_id);
-  return error_tuple(env, "Cannot open file");
-};
+  if ( file_id )
+	H5Fclose( file_id ) ;
+  return error_tuple( env, "Cannot open file" ) ;
+
+}
 
 
-// open file
-ERL_NIF_TERM h5fclose(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+
+// Closes specified HDF5 file.
+ERL_NIF_TERM h5fclose( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 {
-  hid_t file_id;
 
-  // parse arguments
-  check(argc == 1, "Incorrect number of arguments");
-  check(enif_get_int(env, argv[0], &file_id), "Cannot get resource from argv");
+  hid_t file_id ;
 
-  // close file
-  check(!H5Fclose(file_id), "Failed to close file.");
-  return atom_ok;
+  check( argc == 1, "Incorrect number of arguments" ) ;
+
+  check( enif_get_int( env, argv[0], &file_id ),
+	"Cannot get file handle from argv" ) ;
+
+  // Closes file:
+  check( ! H5Fclose( file_id ), "Failed to close file." ) ;
+
+  return atom_ok ;
 
  error:
-  return error_tuple(env, "Cannot close file");
-};
+  return error_tuple( env, "Cannot close file" ) ;
+
+}

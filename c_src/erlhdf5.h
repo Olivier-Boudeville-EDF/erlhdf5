@@ -15,7 +15,6 @@
 /* You should have received a copy of the GNU Lesser General Public */
 /* License along with Erlsom.  If not, see */
 /* <http://www.gnu.org/licenses/>. */
-
 /* Author contact: romanshestakov@yahoo.co.uk */
 
 /*
@@ -72,7 +71,7 @@ int convert_nif_to_hsize_array( ErlNifEnv* env, hsize_t size,
   const ERL_NIF_TERM* arr_from, hsize_t *arr_to ) ;
 
 int convert_int_array_to_nif_array( ErlNifEnv* env, hsize_t size, int *arr_from,
-ERL_NIF_TERM* arr_to ) ;
+  ERL_NIF_TERM* arr_to ) ;
 
 
 ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
@@ -101,6 +100,10 @@ ERL_NIF_TERM h5sget_simple_extent_ndims( ErlNifEnv* env, int argc,
 
 ERL_NIF_TERM h5sget_simple_extent_dims( ErlNifEnv* env, int argc,
   const ERL_NIF_TERM argv[] ) ;
+
+ERL_NIF_TERM h5sselect_hyperslab( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] ) ;
+
 
 
 // h5p sub-API;

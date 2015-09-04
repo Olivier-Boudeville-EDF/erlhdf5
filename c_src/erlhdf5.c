@@ -98,13 +98,17 @@ static int load( ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info )
 
 
 
-// Converts specified error message from C to { error, Reason }:
+/*
+ * Converts specified error message from C to:
+ *   { error::atom(), Reason::string() }
+ *
+ */
 ERL_NIF_TERM error_tuple( ErlNifEnv* env, char* reason )
 {
 
 	ERL_NIF_TERM nif_reason = enif_make_string( env, reason, ERL_NIF_LATIN1 ) ;
 
-	// { error, Reason }:
+	// { error, Reason }, thus:
 	return enif_make_tuple2( env, atom_error, nif_reason ) ;
 
 }
@@ -126,24 +130,37 @@ ERL_NIF_TERM error_tuple( ErlNifEnv* env, char* reason )
 
 
 
-// API name, arity and C name:
+/*
+ * API name, arity and C name of all functions offered by the NIF:
+ *
+ * (note that apparently if a function is declared and listed yet not defined in
+ * C, then the module will be loadable, yet even calls to functions that were
+ * defined will fail as if they were not, ex: {undef,[{erlhdf5,h5fcreate,...)
+ *
+ */
+
 static ErlNifFunc nif_funcs[] =
 {
 
   { "h5fcreate",                  2, h5fcreate },
   { "h5fopen",                    2, h5fopen },
   { "h5fclose",                   1, h5fclose },
+
   { "h5screate_simple",           2, h5screate_simple },
   { "h5sclose",                   1, h5sclose },
   { "h5sget_simple_extent_dims",  2, h5sget_simple_extent_dims },
   { "h5sget_simple_extent_ndims", 1, h5sget_simple_extent_ndims },
+  { "h5sselect_hyperslab",        6, h5sselect_hyperslab },
+
   { "h5pcreate",                  1, h5pcreate },
   { "h5pclose",                   1, h5pclose },
+
   { "h5tcopy",                    1, h5tcopy },
   { "h5tclose",                   1, h5tclose },
   { "h5tget_class",               1, h5tget_class },
   { "h5tget_order",               1, h5tget_order },
   { "h5tget_size",                1, h5tget_size },
+
   { "h5dcreate",                  5, h5dcreate },
   { "h5dopen",                    2, h5dopen },
   { "h5dclose",                   1, h5dclose },
@@ -152,6 +169,7 @@ static ErlNifFunc nif_funcs[] =
   { "h5dwrite",                   2, h5dwrite },
   { "h5d_get_storage_size",       1, h5d_get_storage_size },
   { "h5dget_space",               1, h5dget_space },
+
   { "h5lt_make_dataset",          5, h5lt_make_dataset },
   { "h5lt_read_dataset_int",      2, h5lt_read_dataset_int },
   { "h5ltget_dataset_ndims",      2, h5ltget_dataset_ndims },

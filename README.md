@@ -10,20 +10,25 @@ This binding allows to use [HDF5](https://en.wikipedia.org/wiki/Hierarchical_Dat
 While this fork is more complete and more correct (ex: HDF5 writing has been fixed), this binding is still very far from capturing all the numerous HDF5 APIs.
 
 
-Compared to the original work, apart the code enhancements and bug fixing:
+Compared to the original work, apart the low-level code enhancements, comments additions, typing improvements and bug fixing:
 * datatype of stored elements can be now (native) integer or (native) double i.e. floating-point values; was: only native integers
+* a basic hyperslab support has been added
+
 
 
 ## Known binding limitations
 
+This binding has following known limitations:
 * binding mostly designed for rank 2 data, i.e. two-dimensional arrays, represented as lists of tuples (see below)
 * datasets must be written in full (i.e. no dataspace size is specified, hence as many bytes as needed will be read from RAM to fill the targeted dataset)
 * many APIs not integrated
 
 
-## Known fork limitations
+## Known limitations of this fork
 
+This fork, compared to the original erlhdf5, has following known limitations:
 * the Travis continuous integration and other fancy features like the automatic download and install of HDF5 have probably been broken (as we do not use them)
+
 
 
 ## About data arrays

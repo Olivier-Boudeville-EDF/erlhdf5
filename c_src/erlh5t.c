@@ -99,7 +99,8 @@ ERL_NIF_TERM h5tcopy(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  error:
   if(type_id) H5Tclose(type_id);
   return error_tuple(env, "cannot copy type");
-};
+
+}
 
 
 // close

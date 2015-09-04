@@ -35,21 +35,25 @@ ERL_NIF_TERM h5screate_simple( ErlNifEnv* env, int argc,
 {
 
   const ERL_NIF_TERM *terms ;
-  int rank; // number of dimensions of dataspace
-  int arity;
+
+  // Number of dimensions of dataspace:
+  int rank ;
+
+  int arity ;
 
   // Parses arguments:
   check( argc == 2, "Incorrect number of arguments" ) ;
   check( enif_get_int( env, argv[0], &rank ), "Cannot get rank from argv" ) ;
   check( enif_get_tuple( env, argv[1], &arity, &terms ),
-	"Cannot get terms from argv");
+	"Cannot get terms from argv" ) ;
 
   // Makes sure that rank is matching arity:
-  check( rank <= 2, "does not support more than 2 dimensions" ) ;
+  check( rank <= 2, "Up to two dimensions supported only" ) ;
 
-  // Allocates array of size rank, specifiying the size of each dimension:
+  // Allocates array of size rank, specifying the size of each dimension:
   hsize_t * dimsf = (hsize_t*) enif_alloc( arity * sizeof( hsize_t ) ) ;
 
+  // Copies the specified dimensions into dimsf:
   check( ! convert_nif_to_hsize_array( env, arity, terms, dimsf ),
 	"Cannot convert dimensions array" ) ;
 
@@ -74,88 +78,334 @@ ERL_NIF_TERM h5screate_simple( ErlNifEnv* env, int argc,
 }
 
 
-// close
-ERL_NIF_TERM h5sclose(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// Closes specified dataspace.
+ERL_NIF_TERM h5sclose( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 {
-  hid_t dataspace_id;
 
-  // parse arguments
-  check(argc == 1, "Incorrect number of arguments");
-  check(enif_get_int(env, argv[0], &dataspace_id), "cannot get resource from argv");
-  // close properties list
-  check(!H5Sclose(dataspace_id), "Failed to close dataspace.");
-  return atom_ok;
+  check( argc == 1, "Incorrect number of arguments" ) ;
+
+  hid_t dataspace_id ;
+
+  check( enif_get_int( env, argv[0], &dataspace_id ),
+	"Cannot get dataspace handle from argv" ) ;
+
+  check( ! H5Sclose( dataspace_id ), "Failed to close dataspace" ) ;
+
+  return atom_ok ;
 
  error:
-  return error_tuple(env, "cannot close dataspace");
-};
+  return error_tuple( env, "Cannot close dataspace" ) ;
+
+}
 
 
-// Determines the dimensionality of a dataspace.
-ERL_NIF_TERM h5sget_simple_extent_ndims(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+
+// Determines the dimensionality of specified dataspace.
+ERL_NIF_TERM h5sget_simple_extent_ndims( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] )
 {
-  hid_t dataspace_id;
-  int ndims;
 
-  // parse arguments
-  check(argc == 1, "Incorrect number of arguments");
-  check(enif_get_int(env, argv[0], &dataspace_id), "cannot get resource from argv");
+  check( argc == 1, "Incorrect number of arguments" ) ;
 
-  // get ndims
-  ndims = H5Sget_simple_extent_ndims(dataspace_id);
-  check(ndims > 0, "Failed to determine dataspace dimensions.");
-  return enif_make_tuple2(env, atom_ok, enif_make_int(env, ndims));
+  hid_t dataspace_id ;
+  check( enif_get_int( env, argv[0], &dataspace_id ),
+	"Cannot get dataspace handle from argv" ) ;
+
+  int ndims = H5Sget_simple_extent_ndims( dataspace_id ) ;
+
+  check( ndims > 0, "Failed to determine dataspace dimensions." ) ;
+
+  return enif_make_tuple2( env, atom_ok, enif_make_int( env, ndims ) ) ;
 
  error:
-  return error_tuple(env, "Failed to determine dataspace dimensions");
-};
+  return error_tuple( env, "Failed to determine dataspace dimensions" ) ;
+
+}
 
 
-// Retrieves dataspace dimension size and maximum size.
-ERL_NIF_TERM h5sget_simple_extent_dims(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+
+// Selects an hyperslab in specified dataspace.
+ERL_NIF_TERM h5sselect_hyperslab( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] )
 {
-  hid_t dataspace_id;
-  hsize_t *dims = NULL;
+
+
+  /*
+   * Note: memory leaks on unlikely error cases (ex: stride of different size
+   * than offset).
+   *
+   */
+
+  /* Type specification is:
+
+  -spec h5sselect_hyperslab( dataspace_handle(), selection_operator(),
+							 Offset::size_tuple(), Stride::size_tuple(),
+							 Count::size_tuple(), Block::size_tuple() ) ->
+								 'ok' | error().
+  */
+
+  if ( argc != 6 )
+	return error_tuple( env, "Expected 6 arguments" ) ;
+
+
+  hid_t dataspace_id ;
+
+  if ( ! enif_get_int( env, argv[0], &dataspace_id ) )
+	return error_tuple( env, "Cannot get dataspace handle from argv" ) ;
+
+  char selection_operator[ MAXBUFLEN ] ;
+
+  if ( ! enif_get_atom( env, argv[1], selection_operator, MAXBUFLEN,
+	  ERL_NIF_LATIN1 ) )
+	return error_tuple( env, "Cannot get selection operator from argv" ) ;
+
+  H5S_seloper_t selection_op ;
+
+  if( strncmp( selection_operator, "H5S_SELECT_SET", MAXBUFLEN ) == 0 )
+  {
+
+	//printf( "Selection operator: 'set'.\n" ) ;
+	selection_op = H5S_SELECT_SET ;
+
+  }
+  else if( strncmp( selection_operator, "H5S_SELECT_OR", MAXBUFLEN ) == 0 )
+  {
+
+	//printf( "Selection operator: 'or'.\n" ) ;
+	selection_op = H5S_SELECT_OR ;
+
+  }
+  else
+  {
+
+	char message[ MAXBUFLEN ] ;
+
+	sprintf( message, "Unknown selection operator %s", selection_operator ) ;
+
+	return error_tuple( env, message ) ;
+
+  }
+
+
+  /*
+   * Let's now extract the four tuples about the dimensions of the hyperslab; we
+   * expect each of them to have the same size and contain (positive) integers.
+   *
+   * We have to extract all their coordinates and store them in a C array so
+   * that libhdf5 can be fed.
+   *
+   */
+
+  const ERL_NIF_TERM * tuple_elements ;
+  int tuple_size ;
+
+  // Offset is argc=2:
+  if ( ! enif_get_tuple( env, argv[2], &tuple_size, &tuple_elements ) )
+	  return error_tuple( env, "Offset parameter is not a tuple" ) ;
+
+  //printf( "Offset of size %u.\n", tuple_size ) ;
+
+  // Kept for comparison:
+  int overall_tuple_size = tuple_size ;
+
+  int buffer_size = tuple_size * sizeof( hsize_t ) ;
+
+  hsize_t * offset_buffer = enif_alloc( buffer_size ) ;
+
+  unsigned int i ;
+
+  int cell ;
+
+  for ( i = 0 ; i < tuple_size ; i++ )
+  {
+
+	  if ( ! enif_get_int( env, tuple_elements[i], &cell ) )
+	  {
+		enif_free( offset_buffer ) ;
+		return error_tuple( env, "Offset cell does not contain an integer" ) ;
+
+	  }
+
+	  offset_buffer[i] = (hsize_t) cell ;
+
+  }
+
+
+  // Stride is argc=3:
+  if ( ! enif_get_tuple( env, argv[3], &tuple_size, &tuple_elements ) )
+	  return error_tuple( env, "Stride parameter is not a tuple" ) ;
+
+  //printf( "Stride of size %u.\n", tuple_size ) ;
+
+  if ( overall_tuple_size != tuple_size )
+	  return error_tuple( env, "Offset and stride of different sizes" ) ;
+
+  hsize_t * stride_buffer = enif_alloc( buffer_size ) ;
+
+  for ( i = 0 ; i < tuple_size ; i++ )
+  {
+
+	  if ( ! enif_get_int( env, tuple_elements[i], &cell ) )
+	  {
+
+		enif_free( offset_buffer ) ;
+		enif_free( stride_buffer ) ;
+		return error_tuple( env, "Stride cell does not contain an integer" ) ;
+
+	  }
+
+	  stride_buffer[i] = (hsize_t) cell ;
+
+  }
+
+  // Count is argc=4:
+  if ( ! enif_get_tuple( env, argv[4], &tuple_size, &tuple_elements ) )
+	  return error_tuple( env, "Count parameter is not a tuple" ) ;
+
+  //printf( "Count of size %u.\n", tuple_size ) ;
+
+  if ( overall_tuple_size != tuple_size )
+	  return error_tuple( env, "Offset and count of different sizes" ) ;
+
+  hsize_t * count_buffer = enif_alloc( buffer_size ) ;
+
+  for ( i = 0 ; i < tuple_size ; i++ )
+  {
+
+	  if ( ! enif_get_int( env, tuple_elements[i], &cell ) )
+	  {
+
+		enif_free( offset_buffer ) ;
+		enif_free( stride_buffer ) ;
+		enif_free( count_buffer ) ;
+		return error_tuple( env, "Count cell does not contain an integer" ) ;
+
+	  }
+
+	  count_buffer[i] = (hsize_t) cell ;
+
+  }
+
+
+  // Block is argc=5:
+  if ( ! enif_get_tuple( env, argv[5], &tuple_size, &tuple_elements ) )
+	  return error_tuple( env, "Block parameter is not a tuple" ) ;
+
+  //printf( "Block of size %u.\n", tuple_size ) ;
+
+  if ( overall_tuple_size != tuple_size )
+	  return error_tuple( env, "Offset and block of different sizes" ) ;
+
+  hsize_t * block_buffer = enif_alloc( buffer_size ) ;
+
+  for ( i = 0 ; i < tuple_size ; i++ )
+  {
+
+	  if ( ! enif_get_int( env, tuple_elements[i], &cell ) )
+	  {
+
+		enif_free( offset_buffer ) ;
+		enif_free( stride_buffer ) ;
+		enif_free( count_buffer ) ;
+		enif_free( block_buffer ) ;
+		return error_tuple( env, "Block cell does not contain an integer" ) ;
+
+	  }
+
+	  block_buffer[i] = (hsize_t) cell ;
+
+  }
+
+  // Now we have our four buffers right.
+
+  if ( H5Sselect_hyperslab( dataspace_id, selection_op, offset_buffer,
+	  stride_buffer, count_buffer, block_buffer ) < 0  )
+  {
+
+	//H5Eprint( H5Eget_current_stack(), /* error stream */ stderr ) ;
+
+	enif_free( offset_buffer ) ;
+	enif_free( stride_buffer ) ;
+	enif_free( count_buffer ) ;
+	enif_free( block_buffer ) ;
+	return error_tuple( env, "Hyperslab selection failed" ) ;
+
+  }
+
+  //printf( "Selection succeeded.\n" ) ;
+
+  return atom_ok ;
+
+}
+
+
+
+// Retrieves dataspace dimension sizes: current and maximum sizes.
+ERL_NIF_TERM h5sget_simple_extent_dims( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] )
+{
+
+  check( argc == 2, "Incorrect number of arguments" ) ;
+
+  hid_t dataspace_id ;
+  check( enif_get_int( env, argv[0], &dataspace_id ),
+	"Cannot get dataspace handle from argv" ) ;
+
+  int rank ;
+  check( enif_get_int( env, argv[1], &rank ), "Cannot get rank from argv" ) ;
+
+  /*
+   * Allocates space for dims array to store a number of dimensions equal to
+   * rank:
+   */
+  int array_size = rank * sizeof( hsize_t ) ;
+
+  hsize_t *dims = NULL ;
+  dims = enif_alloc( array_size ) ;
+
   hsize_t *maxdims = NULL;
-  int status;
-  ERL_NIF_TERM dims_list;
-  ERL_NIF_TERM maxdims_list;
-  ERL_NIF_TERM* dims_arr;
-  ERL_NIF_TERM* maxdims_arr;
-  int rank;
+  maxdims = enif_alloc( array_size ) ;
 
-  // parse arguments
-  check(argc == 2, "Incorrect number of arguments");
-  check(enif_get_int(env, argv[0], &dataspace_id), "cannot get resource from argv");
-  check(enif_get_int(env, argv[1], &rank), "cannot get rank from argv");
+  // Gets these dimensions from dataspace:
+  int status = H5Sget_simple_extent_dims( dataspace_id, dims, maxdims ) ;
+  check( status > 0, "Failed to get dimensions" ) ;
 
-  // allocate space for dims array to store a number of dimensions
-  dims = enif_alloc(rank * sizeof(hsize_t));
-  maxdims = enif_alloc(rank * sizeof(hsize_t));
 
-  // get a number of dims from dataspace
-  status = H5Sget_simple_extent_dims(dataspace_id, dims, maxdims);
-  check(status > 0, "Failed to get dims.");
+  // Allocates memory for arrays of ERL_NIF_TERM for the upcoming conversion:
 
-  // allocate mem for arrays of ERL_NIF_TERM so we could convert
-  dims_arr = (ERL_NIF_TERM*)enif_alloc(sizeof(ERL_NIF_TERM) * rank);
-  maxdims_arr = (ERL_NIF_TERM*)enif_alloc(sizeof(ERL_NIF_TERM) * rank);
+  int nif_array_size = rank * sizeof( ERL_NIF_TERM ) ;
 
-  // convert arrays into array of ERL_NIF_TERM
-  check(!convert_array_to_nif_array(env, rank, dims, dims_arr), "cannot convert array");
-  check(!convert_array_to_nif_array(env, rank, maxdims, maxdims_arr), "cannot convert array");
+  ERL_NIF_TERM* dims_arr =    (ERL_NIF_TERM*) enif_alloc( nif_array_size ) ;
+  ERL_NIF_TERM* maxdims_arr = (ERL_NIF_TERM*) enif_alloc( nif_array_size ) ;
 
-   // convert arrays to list
-  dims_list = enif_make_list_from_array(env, dims_arr, rank);
-  maxdims_list = enif_make_list_from_array(env, maxdims_arr, rank);
+  // Convert arrays into array of ERL_NIF_TERM:
 
-   // cleanup
-  enif_free(dims);
-  enif_free(maxdims);
-  return enif_make_tuple3(env, atom_ok, dims_list, maxdims_list);
+  check( ! convert_array_to_nif_array( env, rank, dims, dims_arr ),
+	"Cannot convert current array" ) ;
+
+  check( ! convert_array_to_nif_array( env, rank, maxdims, maxdims_arr ),
+	"Cannot convert max array" ) ;
+
+   // Convert arrays to lists:
+
+  ERL_NIF_TERM dims_list = enif_make_list_from_array( env, dims_arr, rank ) ;
+
+  ERL_NIF_TERM maxdims_list = enif_make_list_from_array( env, maxdims_arr,
+	rank ) ;
+
+   // Cleanup:
+  enif_free( dims ) ;
+  enif_free( maxdims ) ;
+
+  return enif_make_tuple3( env, atom_ok, dims_list, maxdims_list ) ;
 
  error:
-  if(dims) enif_free(dims);
-  if(maxdims) enif_free(maxdims);
-  return error_tuple(env, "cannot get dims");
-};
+  if ( dims )
+	enif_free( dims ) ;
+
+  if ( maxdims )
+	enif_free( maxdims ) ;
+
+  return error_tuple(env, "Cannot get dimensions" ) ;
+
+}
