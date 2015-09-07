@@ -75,10 +75,12 @@ int convert_int_array_to_nif_array( ErlNifEnv* env, hsize_t size, int *arr_from,
 
 
 ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
-  unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list ) ;
+  unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list,
+  hid_t file_dataspace_id ) ;
 
 ERL_NIF_TERM write_int_array( hid_t dataset_id, ErlNifEnv* env,
-  unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list ) ;
+  unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list,
+  hid_t file_dataspace_id ) ;
 
 
 // HDF5 C API:

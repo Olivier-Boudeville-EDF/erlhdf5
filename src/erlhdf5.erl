@@ -44,9 +44,9 @@
 
 
 % H5D, about datasets:
--export( [ h5dcreate/5, h5dopen/2, h5dclose/1, h5dget_type/1,
-		   h5d_get_space_status/1, h5dwrite/2, h5d_get_storage_size/1,
-		   h5dget_space/1 ] ).
+-export( [ h5dcreate/5, h5dopen/2, h5dopen/3, h5dclose/1, h5dget_type/1,
+		   h5d_get_space_status/1, h5dwrite/2, h5dwrite/3,
+		   h5d_get_storage_size/1, h5dget_space/1 ] ).
 
 
 % H5LT, about HDF5 Lite:
@@ -68,7 +68,9 @@
 -type size_tuple() :: tuple(). % tuple( size() )
 
 
-% Either replaces the existing selection or adds a new one.
+
+
+% Either replaces the existing dataspace selection or adds a new one.
 %
 %-type selection_operator() :: 'set' | 'or'.
 -type selection_operator() :: 'H5S_SELECT_SET' | 'H5S_SELECT_OR'.
@@ -335,10 +337,19 @@ h5dopen( _File, _Name ) ->
 
 
 
+% Opens an existing dataset with specified access property list.
+%
+-spec h5dopen( File::file_handle(), Name::string(), AccessPropList::any() ) ->
+					 { 'ok', dataset_handle() } | error().
+h5dopen( _File, _Name, _AccessPropList ) ->
+	nif_error( ?LINE ).
+
+
+
 % Closes specified dataset.
 %
 -spec h5dclose( dataset_handle() ) -> 'ok' | error().
-h5dclose( _Handle ) ->
+h5dclose( _Dataset ) ->
 	nif_error( ?LINE ).
 
 
@@ -346,7 +357,7 @@ h5dclose( _Handle ) ->
 % Returns an identifier for a copy of the datatype for a dataset.
 %
 -spec h5dget_type( dataset_handle() ) -> { 'ok', datatype_handle() } | error().
-h5dget_type( _Handle ) ->
+h5dget_type( _Dataset ) ->
 	nif_error( ?LINE ).
 
 
@@ -355,7 +366,7 @@ h5dget_type( _Handle ) ->
 %
 -spec h5d_get_space_status( dataset_handle() ) ->
 					{ 'ok', Status::atom() } | error().
-h5d_get_space_status( _Handle ) ->
+h5d_get_space_status( _Dataset ) ->
 	nif_error( ?LINE ).
 
 
@@ -363,7 +374,18 @@ h5d_get_space_status( _Handle ) ->
 % Writes specified data into specified dataset.
 %
 -spec h5dwrite( dataset_handle(), data() ) -> 'ok' | error().
-h5dwrite( _DatasetHandle, _Data ) ->
+h5dwrite( _Dataset, _Data ) ->
+	nif_error( ?LINE ).
+
+
+
+% Writes specified data into specified dataset, using specified dataspace.
+%
+% Useful for partial file writing.
+%
+-spec h5dwrite( dataset_handle(), dataspace_handle(), data() ) ->
+					  'ok' | error().
+h5dwrite( _Dataset, _FileDataspace, _Data ) ->
 	nif_error( ?LINE ).
 
 

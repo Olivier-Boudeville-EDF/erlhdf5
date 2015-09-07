@@ -91,9 +91,15 @@ int convert_nif_to_hsize_array( ErlNifEnv* env, hsize_t size,
 }
 
 
-// Helper to translate [ tuple( double() ) ] into a C-array for HDF5.
+
+/*
+ * Helper to translate [ tuple( float() ) ] terms into a C-array of doubles for
+ * injecting (writing) that (in-memory) data in specified (in-file) dataspace.
+ *
+ */
 ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
-  unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list )
+  unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list,
+  hid_t file_dataspace_id )
 {
 
   double * buffer_for_hdf = enif_alloc(
@@ -107,15 +113,15 @@ ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
 
   ERL_NIF_TERM head, tail ;
 
-  const ERL_NIF_TERM *terms ;
+  const ERL_NIF_TERM *tuple_elements ;
 
-  // Go through each list element, and unpack it:
+  // Go through each list element (tuple), and unpack it:
   while ( enif_get_list_cell( env, tuple_list, &head, &tail ) )
   {
 
 	int this_tuple_size ;
 
-	if ( ! enif_get_tuple( env, head, &this_tuple_size, &terms ) )
+	if ( ! enif_get_tuple( env, head, &this_tuple_size, &tuple_elements ) )
 	{
 	  enif_free( buffer_for_hdf ) ;
 	  return error_tuple( env, "Cannot get tuples from the input list" ) ;
@@ -129,13 +135,14 @@ ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
 	  return error_tuple( env, "Non-uniform tuple size detected" ) ;
 	}
 
-	unsigned int j ;
+	unsigned int i ;
 
 	// Iterates through the elements of this tuple and stores them:
-	for( j = 0; j < tuple_size; j++ )
+	for( i = 0; i < tuple_size; i++ )
 	{
 
-	  if ( ! enif_get_double( env, terms[j], buffer_for_hdf + global ) )
+	  if ( ! enif_get_double( env, tuple_elements[i],
+		  buffer_for_hdf + global ) )
 	  {
 		enif_free( buffer_for_hdf ) ;
 		return error_tuple( env, "Cell does not contain a double value" ) ;
@@ -151,17 +158,17 @@ ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
 
   }
 
-  // Finally writes the translated data to the dataset:
+  // Finally, writes the translated data to the dataset:
   if( H5Dwrite(
 	  /* target */ dataset_id,
 	  /* cell type */ H5T_NATIVE_DOUBLE,
 	  /* memory and selection dataspace */ H5S_ALL,
-	  /* selection within the file dataset's dataspace */ H5S_ALL,
+	  /* selection within the file dataset's dataspace */ file_dataspace_id,
 	  /* default data transfer properties */ H5P_DEFAULT,
 	  /* source location */ buffer_for_hdf ) < 0 )
   {
 	enif_free( buffer_for_hdf ) ;
-	return error_tuple( env, "Failed to write into dataset" ) ;
+	return error_tuple( env, "Failed to write into double dataset" ) ;
   }
 
   enif_free( buffer_for_hdf ) ;
@@ -172,13 +179,19 @@ ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
 
 
 
-// Helper to translate [ tuple( integer() ) ] into a C-array for HDF5.
+/*
+ * Helper to translate [ tuple( integer() ) ] terms into a C-array of ints for
+ * injecting (writing) that (in-memory) data in specified (in-file) dataspace.
+ *
+ */
 ERL_NIF_TERM write_int_array( hid_t dataset_id, ErlNifEnv* env,
-  unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list )
+  unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list,
+  hid_t file_dataspace_id )
 {
 
-  int * buffer_for_hdf = enif_alloc(
-	list_length * tuple_size * sizeof( int ) ) ;
+  hsize_t element_count = list_length * tuple_size ;
+
+  int * buffer_for_hdf = enif_alloc( element_count * sizeof( int ) ) ;
 
   if ( ! buffer_for_hdf )
 	return error_tuple( env, "Cannot allocate intermediate array memory" ) ;
@@ -188,15 +201,15 @@ ERL_NIF_TERM write_int_array( hid_t dataset_id, ErlNifEnv* env,
 
   ERL_NIF_TERM head, tail ;
 
-  const ERL_NIF_TERM *terms ;
+  const ERL_NIF_TERM * tuple_elements ;
 
-  // Goes through each list element, and unpack it:
+  // Goes through each list element, and unpacks it:
   while ( enif_get_list_cell( env, tuple_list, &head, &tail ) )
   {
 
 	int this_tuple_size ;
 
-	if ( ! enif_get_tuple( env, head, &this_tuple_size, &terms ) )
+	if ( ! enif_get_tuple( env, head, &this_tuple_size, &tuple_elements ) )
 	{
 	  enif_free( buffer_for_hdf ) ;
 	  return error_tuple( env, "Cannot get tuples from the input list" ) ;
@@ -210,19 +223,19 @@ ERL_NIF_TERM write_int_array( hid_t dataset_id, ErlNifEnv* env,
 	  return error_tuple( env, "Non-uniform tuple size detected" ) ;
 	}
 
-	unsigned int j ;
+	unsigned int i ;
 
 	// Iterates through the elements of this tuple and stores them:
-	for( j = 0; j < tuple_size; j++ )
+	for( i = 0; i < tuple_size; i++ )
 	{
 
-	  if ( ! enif_get_int( env, terms[j], buffer_for_hdf + global ) )
+	  if ( ! enif_get_int( env, tuple_elements[i], buffer_for_hdf + global ) )
 	  {
 		enif_free( buffer_for_hdf ) ;
 		return error_tuple( env, "Cell does not contain an integer" ) ;
 	  }
 
-	  //printf( "element =%i\n", *( buffer_for_hdf + global ) );
+	  //printf( "element =%i\n", *( buffer_for_hdf + global ) ) ;
 
 	  global++ ;
 
@@ -232,12 +245,26 @@ ERL_NIF_TERM write_int_array( hid_t dataset_id, ErlNifEnv* env,
 
   }
 
-  // Finally writes the translated data to the dataset:
-  if( H5Dwrite( dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
-	  buffer_for_hdf ) < 0 )
+  // Just one dimension:
+  hid_t mem_dataspace_id = H5Screate_simple( /* rank */ 1, &element_count,
+	/* max dims */ NULL ) ;
+
+  if ( mem_dataspace_id < 0 )
+	return error_tuple( env, "Cannot create a memory dataspace" ) ;
+
+
+  // Finally, writes the translated data to the dataset:
+  if( H5Dwrite(
+	  /* target */ dataset_id,
+	  /* cell type */ H5T_NATIVE_INT,
+	  /* memory and selection dataspace */ mem_dataspace_id,
+	  /* selection within the file dataset's dataspace */ file_dataspace_id,
+	  /* default data transfer properties */ H5P_DEFAULT,
+	  /* source location */ buffer_for_hdf ) < 0 )
+
   {
 	enif_free( buffer_for_hdf ) ;
-	return error_tuple( env, "Failed to write into dataset" ) ;
+	return error_tuple( env, "Failed to write into int dataset" ) ;
   }
 
   enif_free( buffer_for_hdf ) ;

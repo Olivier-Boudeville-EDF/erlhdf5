@@ -161,14 +161,14 @@ ERL_NIF_TERM h5sselect_hyperslab( ErlNifEnv* env, int argc,
 
   H5S_seloper_t selection_op ;
 
-  if( strncmp( selection_operator, "H5S_SELECT_SET", MAXBUFLEN ) == 0 )
+  if ( strncmp( selection_operator, "H5S_SELECT_SET", MAXBUFLEN ) == 0 )
   {
 
 	//printf( "Selection operator: 'set'.\n" ) ;
 	selection_op = H5S_SELECT_SET ;
 
   }
-  else if( strncmp( selection_operator, "H5S_SELECT_OR", MAXBUFLEN ) == 0 )
+  else if ( strncmp( selection_operator, "H5S_SELECT_OR", MAXBUFLEN ) == 0 )
   {
 
 	//printf( "Selection operator: 'or'.\n" ) ;

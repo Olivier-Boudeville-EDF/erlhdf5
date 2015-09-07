@@ -122,35 +122,74 @@ ERL_NIF_TERM h5dcreate( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 
 
 
-// Opens from specified file an existing dataset.
+/*
+ * Opens from specified file an existing dataset.
+ *
+ * This corresponds to h5dopen/{2,3}, depending on whether an access property
+ * list is specified:
+ *
+ * -spec h5dopen( HDF5File::file_handle(), DatasetName::string() ) ->
+ *   { 'ok', dataset_handle() } | error().
+ *
+ * and
+ *
+ * -spec h5dopen( HDF5File::file_handle(), DatasetName::string(),
+ *   DatasetAccessPropList ) -> { 'ok', dataset_handle() } | error().
+ *
+ */
 ERL_NIF_TERM h5dopen( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 {
 
-  ERL_NIF_TERM ret ;
-  char ds_name[ MAXBUFLEN ] ;
+  // Dataset access property list:
+  hid_t ds_proplist ;
+
+   switch ( argc )
+  {
+
+  case 2:
+	ds_proplist = H5P_DEFAULT ;
+	break ;
+
+  case 3:
+	{
+
+	  /*
+	   * Actually an atom like 'H5P_DATASET_ACCESS' should be specified here
+	   * (h5dopen/3 not functional)
+	   *
+	   */
+	  hid_t class_id ;
+	  if( ! enif_get_int( env, argv[2], &class_id ) )
+		return error_tuple( env,
+		  "Cannot get dataset property list from argv" ) ;
+
+	  ds_proplist = H5Pcreate( class_id ) ;
+	}
+	break ;
+
+  default:
+	return error_tuple( env, "Incorrect number of arguments" ) ;
+
+  }
+
   hid_t file_id ;
-  hid_t ds_id ;
 
-  // Parses arguments:
-  check( argc == 2, "Incorrect number of arguments" ) ;
-  check( enif_get_int( env, argv[0], &file_id ),
-	"Cannot get file resource from argv" ) ;
+  if ( ! enif_get_int( env, argv[0], &file_id ) )
+	return error_tuple( env, "Cannot get file resource from argv" ) ;
 
-  check( enif_get_string( env, argv[1], ds_name, sizeof( ds_name ),
-	  ERL_NIF_LATIN1 ), "Cannot get dataset name from argv" ) ;
+  char ds_name[ MAXBUFLEN ] ;
+  if ( ! enif_get_string( env, argv[1], ds_name, sizeof( ds_name ),
+	  ERL_NIF_LATIN1 ) )
+	return error_tuple( env, "Cannot get dataset name from argv" ) ;
 
   // Creates a new file handle, using default properties:
-  ds_id = H5Dopen( file_id, ds_name, H5P_DEFAULT ) ;
-  check( ds_id > 0, "Failed to open dataset." ) ;
+  hid_t ds_id = H5Dopen( file_id, ds_name, ds_proplist ) ;
+  if ( ds_id <= 0 )
+	return error_tuple( env, "Failed to open dataset" ) ;
 
-  ret = enif_make_int( env, ds_id ) ;
+  ERL_NIF_TERM ret = enif_make_int( env, ds_id ) ;
 
   return enif_make_tuple2( env, atom_ok, ret ) ;
-
- error:
-  if( ds_id )
-	H5Dclose( ds_id ) ;
-  return error_tuple( env, "Cannot open dataset" ) ;
 
 }
 
@@ -270,20 +309,19 @@ ERL_NIF_TERM h5dget_type( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 
 
 /*
- * Writes specified dataset into file.
- *
- * Note that we expect to write the full content of the dataset at once (no
- * specific size is specified here).
- *
- * Two types of cells are supported: native integer or float.
+ * Corresponds to h5dwrite/2, i.e. a writing of the data on the full dataset of
+ * the file:
  *
  */
-ERL_NIF_TERM h5dwrite( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
+ERL_NIF_TERM h5dwrite_2( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 {
 
-  // Parses arguments:
-  if ( argc != 2 )
-	  return error_tuple( env, "Incorrect number of arguments" ) ;
+  /*
+   * -spec h5dwrite( dataset_handle(), data() ) -> 'ok' | error().
+   *
+   * Parses the two arguments:
+   *
+   */
 
   hid_t dataset_id ;
 
@@ -291,6 +329,138 @@ ERL_NIF_TERM h5dwrite( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 	return error_tuple( env, "Cannot get dataset handle from argv" ) ;
 
   ERL_NIF_TERM tuple_list = argv[1] ;
+
+  // The input array will be of type, in C: int[U][V] or double[U][V].
+
+  unsigned int list_length ;
+
+  /*
+   * Gets the dimensions of input list : length of list is U (i.e. there are U
+   * data tuples), and size of tuples is V. All tuples are expected to be of the
+   * same size (same number of elements, V) and homogeneous (all their elements
+   * are of the same type, typically native int or float).
+   *
+   */
+  if ( ! enif_get_list_length( env, tuple_list, &list_length ) )
+	return error_tuple( env, "Cannot get length of input list" ) ;
+
+  //printf( "List length (U): %u\n", list_length ) ;
+
+  if ( list_length == 0 )
+	return error_tuple( env, "Empty input list" ) ;
+
+  /*
+   * Determines once for all the size of inner tuples (i.e. V), based on the
+   * first element found:
+   *
+   * Note: we could/should check that all tuples have the same size and that
+   * their elements are all of the same type; is done directly in Erlang in
+   * higher-level abstractions (e.g. hdf5_support).
+   *
+   */
+
+  ERL_NIF_TERM head, tail ;
+
+  if ( ! enif_get_list_cell( env, tuple_list, &head, &tail ) )
+	return error_tuple( env, "Cannot get first element of input list" ) ;
+
+  const ERL_NIF_TERM *terms ;
+  int tuple_size ;
+
+  if ( ! enif_get_tuple( env, head, &tuple_size, &terms ) )
+	  return error_tuple( env,
+		"Cannot get the size of the first tuple from the input list" ) ;
+
+  //printf( "Tuple size (V): %u\n", tuple_size ) ;
+
+  /*
+   * Let's determine now the type of the cell elements, by assuming it is first
+   * a floating-point value (a double), then a (native) integer:
+   *
+   */
+  cell_type detected_type ;
+
+  double floating_point_value ;
+  int integer_value ;
+
+  if ( enif_get_double( env, terms[0], &floating_point_value ) )
+  {
+
+	//printf( "Detected float (double) %f.\n", floating_point_value ) ;
+	detected_type = FLOAT ;
+
+  }
+  else if ( enif_get_int( env, terms[0], &integer_value ) )
+  {
+
+	//printf( "Detected integer %i.\n", integer_value ) ;
+	detected_type = INTEGER ;
+
+  }
+  else
+  {
+
+	return error_tuple( env, "Unsupported cell type" ) ;
+
+  }
+
+
+  /*
+   * Allocates space for the intermediate array used to feed HDF:
+   * (on the heap rather than on the stack, as it can be big)
+   */
+
+  switch( detected_type )
+  {
+
+  case FLOAT:
+	return write_float_array( dataset_id, env, list_length, tuple_size,
+	  tuple_list, /* using the full file dataspace */ H5S_ALL ) ;
+	break ;
+
+  case INTEGER:
+	return write_int_array( dataset_id, env, list_length, tuple_size,
+	  tuple_list, /* using the full file dataspace */ H5S_ALL ) ;
+	break ;
+
+  default:
+	return error_tuple( env, "Unsupported datatype for writing" ) ;
+
+  }
+
+}
+
+
+
+/*
+ * Corresponds to h5dwrite/3, i.e a writing making use of a dataspace-based
+ * selection on the target file:
+ *
+ */
+ERL_NIF_TERM h5dwrite_3( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
+{
+
+  // TODO: merge common parts with h5dwrite_2
+
+  /*
+   * -spec h5dwrite( dataset_handle(), dataspace_handle(), data() ) ->
+   *					  'ok' | error().
+   *
+   * Parses the three arguments:
+   *
+   */
+
+  hid_t dataset_id ;
+
+  if ( ! enif_get_int( env, argv[0], &dataset_id ) )
+	return error_tuple( env, "Cannot get dataset handle from argv" ) ;
+
+  hid_t dataspace_id ;
+
+ if ( ! enif_get_int( env, argv[1], &dataspace_id ) )
+	return error_tuple( env, "Cannot get dataspace handle from argv" ) ;
+
+  ERL_NIF_TERM tuple_list = argv[2] ;
 
   // The input array will be of type, in C: int[U][V] our double[U][V].
 
@@ -303,9 +473,9 @@ ERL_NIF_TERM h5dwrite( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 	are of the same type, typically native int or float).
    */
   if ( ! enif_get_list_length( env, tuple_list, &list_length ) )
-	return error_tuple( env, "Cannot get length of input list." ) ;
+	return error_tuple( env, "Cannot get length of input list" ) ;
 
-  printf( "List length (U): %u\n", list_length ) ;
+  //printf( "List length (U): %u\n", list_length ) ;
 
   if ( list_length == 0 )
 	return error_tuple( env, "Empty input list" ) ;
@@ -331,7 +501,7 @@ ERL_NIF_TERM h5dwrite( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 	  return error_tuple( env,
 		"Cannot get the size of the first tuple from the input list" ) ;
 
-  printf( "Tuple size (V): %u\n", tuple_size ) ;
+  //printf( "Tuple size (V): %u\n", tuple_size ) ;
 
   /*
    * Let's determine now the type of the cell elements, by assuming it is first
@@ -346,14 +516,14 @@ ERL_NIF_TERM h5dwrite( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
   if ( enif_get_double( env, terms[0], &floating_point_value ) )
   {
 
-	printf( "Detected float (double) %f.\n", floating_point_value ) ;
+	//printf( "Detected float (double) %f.\n", floating_point_value ) ;
 	detected_type = FLOAT ;
 
   }
   else if ( enif_get_int( env, terms[0], &integer_value ) )
   {
 
-	printf( "Detected integer %i.\n", integer_value ) ;
+	//printf( "Detected integer %i.\n", integer_value ) ;
 	detected_type = INTEGER ;
 
   }
@@ -375,16 +545,55 @@ ERL_NIF_TERM h5dwrite( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 
   case FLOAT:
 	return write_float_array( dataset_id, env, list_length, tuple_size,
-	  tuple_list ) ;
+	  tuple_list, dataspace_id ) ;
 	break ;
 
   case INTEGER:
 	return write_int_array( dataset_id, env, list_length, tuple_size,
-	  tuple_list ) ;
+	  tuple_list, dataspace_id ) ;
 	break ;
 
   default:
 	return error_tuple( env, "Unsupported type for writing." ) ;
+
+  }
+
+}
+
+
+
+/*
+ * Writes specified dataset into file, using a target dataspace if specified.
+ *
+ * Note that, if using the version of arity 2, we expect to write the full
+ * content of the dataset at once (no specific size is specified here), while
+ * the version of arity 3 the specified dataspace allows to select the parts of
+ * the target dataset that will be written (updated).
+ *
+ * Two types of cells are supported: native integer or float.
+ *
+ */
+ERL_NIF_TERM h5dwrite( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
+{
+
+  /*
+   * There are two versions, h5dwrite/{2,3}:
+   *
+   */
+
+  switch ( argc )
+  {
+
+  case 2:
+	return h5dwrite_2( env, argc, argv ) ;
+	break ;
+
+  case 3:
+	return h5dwrite_3( env, argc, argv ) ;
+	break ;
+
+  default:
+	return error_tuple( env, "Invalid arity" ) ;
 
   }
 

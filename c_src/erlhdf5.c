@@ -163,10 +163,12 @@ static ErlNifFunc nif_funcs[] =
 
   { "h5dcreate",                  5, h5dcreate },
   { "h5dopen",                    2, h5dopen },
+  { "h5dopen",                    3, h5dopen },
   { "h5dclose",                   1, h5dclose },
   { "h5dget_type",                1, h5dget_type },
   { "h5d_get_space_status",       1, h5d_get_space_status },
   { "h5dwrite",                   2, h5dwrite },
+  { "h5dwrite",                   3, h5dwrite },
   { "h5d_get_storage_size",       1, h5d_get_storage_size },
   { "h5dget_space",               1, h5dget_space },
 

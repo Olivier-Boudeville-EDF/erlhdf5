@@ -1,4 +1,4 @@
-Welcome to our fork of the erlhdf5 binding, to manage HDF5 from Erlang.
+Welcome to our fork of the erlhdf5 binding, to manage the HDF5 file format from the Erlang/OTP programming language.
 
 
 # User Notes
@@ -7,21 +7,19 @@ This is a fork of the [original erlhdf5 binding](https://github.com/RomanShestak
 
 This binding allows to use [HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5) from [Erlang](http://erlang.org), i.e. to read and write files in the HDF5 format.
 
-While this fork is more complete and more correct (ex: HDF5 writing has been fixed), this binding is still very far from capturing all the numerous HDF5 APIs.
+While this fork is more complete and more correct (ex: HDF5 writing has been fixed), this binding is still very far from capturing all the numerous APIs provided by HDF5.
 
 
 Compared to the original work, apart the low-level code enhancements, comments additions, typing improvements and bug fixing:
 * datatype of stored elements can be now (native) integer or (native) double i.e. floating-point values; was: only native integers
-* a basic hyperslab support has been added
+* a basic hyperslab support has been added, so that only part of a in-file dataset can be updated (from in-memory data); previously: datasets had to be written in full (i.e. no dataspace size was specified, hence as many bytes as needed were read from RAM to fill the targeted dataset)
 
 
 
 ## Known binding limitations
 
 This binding has following known limitations:
-* binding mostly designed for rank 2 data, i.e. two-dimensional arrays, represented as lists of tuples (see below)
-* datasets must be written in full (i.e. no dataspace size is specified, hence as many bytes as needed will be read from RAM to fill the targeted dataset)
-* many APIs not integrated
+* many datatypes and APIs not integrated
 
 
 ## Known limitations of this fork
@@ -55,14 +53,16 @@ int a[3][4] = {
 };
 ```
 
+In memory, this will be a continuous series of integers: `{0,1,2,3,4,5,6,7,8,9,10,11}`.
+
+
 
 ## About data conversions
 
-In memory, a continuous series of integers: `{0,1,2,3,4,5,6,7,8,9,10,11}`.
 
 HDF5 will perform some automatic conversions on the stored datatypes.
 
-For example, if writing `Data = [ { 1.5, 2.5 }, { 3.5, 4.5 } ]` in a dataset using the `H5T_NATIVE_INT type``, then the HDF5 file will contain:
+For example, if writing `Data = [ { 1.5, 2.5 }, { 3.5, 4.5 } ]` in a dataset using the `H5T_NATIVE_INT` type, then the HDF5 file will contain:
 
 ```
 	 DATATYPE  H5T_STD_I32LE
@@ -73,7 +73,7 @@ For example, if writing `Data = [ { 1.5, 2.5 }, { 3.5, 4.5 } ]` in a dataset usi
 	  (2,0): 0, 0, 0, 0
 ```
 
-(note that here the writing is too short to fill the target dataspace - this should never be attempted)
+(note that here the writing is too short to fill the target dataspace - this should never be attempted with `h5dwrite/2`; a target dataspace and `h5dwrite/3` should be used for that)
 
 
 
@@ -82,14 +82,14 @@ For example, if writing `Data = [ { 1.5, 2.5 }, { 3.5, 4.5 } ]` in a dataset usi
 
 All failure cases should deal with memory allocation, to avoid leaks.
 
-
+A higher-level Erlang abstraction of HDF5 services has been built on top of this version of erlhdf5: see the `hdf5_support` module in [Ceylan-Myriad](https://github.com/Olivier-Boudeville/Ceylan-Myriad) (in `src/data-management`).
 
 
 ## Bugs
 
 With the original binding, there was a bug in the writing of datasets.
 
-Indeed, when writing `Data = [ { 1, 2, 3, 4 }, { 5, 6, 7, 8 }, { 9, 10, 11, 12 } ]`, in:
+Indeed, when writing `Data = [ { 1, 2, 3, 4 }, { 5, 6, 7, 8 }, { 9, 10, 11, 12 } ]`, in the following dataspace:
 
 ```
 { ok, Space } = erlhdf5:h5screate_simple( 2, { 3, 4 } ),
@@ -146,4 +146,4 @@ GROUP "/" {
 }
 ```
 
-(showing traces of memory corruption)
+(showing traces of likely memory corruption)
