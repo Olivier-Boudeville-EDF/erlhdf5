@@ -3,7 +3,7 @@ Welcome to our fork of the erlhdf5 binding, to manage the HDF5 file format from 
 
 # User Notes
 
-This is a fork of the [original erlhdf5 binding](https://github.com/RomanShestakov/erlhdf5).
+This is a fork of the [original erlhdf5 binding](https://github.com/RomanShestakov/erlhdf5), which was mainly a proof of concept. This fork goes a little further.
 
 This binding allows to use [HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5) from [Erlang](http://erlang.org), i.e. to read and write files in the HDF5 format.
 
@@ -19,7 +19,8 @@ Compared to the original work, apart the low-level code enhancements, comments a
 ## Known binding limitations
 
 This binding has following known limitations:
-* many datatypes and APIs not integrated
+* larger datasets may incur performance penalties, since much data transformation is involved between C arrays and their Erlang counterparts
+* many HDF5 datatypes and APIs not integrated
 
 
 ## Known limitations of this fork
@@ -31,9 +32,9 @@ This fork, compared to the original erlhdf5, has following known limitations:
 
 ## About data arrays
 
-Following is an integer array with 3 rows and each row has 4 columns.
+Following is an integer array with 3 rows and 4 columns.
 
-In Erlang, a list of 3 tuples of 4 integer elements each:
+In Erlang, we make it correspond to a list of 3 tuples of 4 integer elements each:
 
 ```
 [  {0, 1, 2, 3},
