@@ -12,34 +12,126 @@ While this fork is more complete and more correct (ex: HDF5 writing has been fix
 
 Compared to the original work, apart the low-level code enhancements, comments additions, typing improvements and bug fixing:
 * datatype of stored elements can be now (native) integer or (native) double i.e. floating-point values; was: only native integers
-* a basic hyperslab support has been added, so that only part of a in-file dataset can be updated (from in-memory data); previously: datasets had to be written in full (i.e. no dataspace size was specified, hence as many bytes as needed were read from RAM to fill the targeted dataset)
+* a basic hyperslab support has been added, so that only part of a in-file dataset can be updated (from in-memory data); previously: datasets had to be written only in full (i.e. no dataspace size was specified, hence as many bytes as needed were read from RAM to fill the targeted dataset, possibly with unexpected extra bytes taken to fill the target space)
 
 
 
 ## Known binding limitations
 
 This binding has following known limitations:
+* no more than 2 dimensions allowed for dataspaces (rank=2)
 * larger datasets may incur performance penalties, since much data transformation is involved between C arrays and their Erlang counterparts
 * many HDF5 datatypes and APIs not integrated
 
 
 ## Known limitations of this fork
 
-This fork, compared to the original erlhdf5, has following known limitations:
+This fork, compared to the original erlhdf5, has following additional known limitations:
 * the Travis continuous integration and other fancy features like the automatic download and install of HDF5 have probably been broken (as we do not use them)
+
+
+
+## Installation Instructions
+
+
+### Building your own HDF5 library
+
+In some cases, a pre-installed HDF5 package will not work appropriately (ex: the binding will fail to compile as MPI includes are not found, or there will be API mismatches like: ```too many arguments to function 'H5Dcreate1'``` that would not all be solved by using ```-DH5Dcreate_vers=2```).
+
+Then instead we can [fetch the sources](http://www.hdfgroup.org/ftp/HDF5/current/src/) of the latest version of HDF (ex: ```1.8.15-patch1```, at the time of this writing) and build them with:
+
+```
+ $ export HDF_VERSION=hdf5-1.8.15-patch1
+ $ mkdir -p /home/foobar/Software/HDF/$HDF_VERSION-install
+ $ cd /home/foobar/Software/HDF
+ $ tar xvjf $HDF_VERSION.tar.bz2
+ $ cd $HDF_VERSION
+ $ ./configure --prefix=/home/foobar/Software/$HDF_VERSION-install
+ $ make && make check && make install
+```
+
+
+Then the root makefile of erlhdf5 can be updated regarding following variables:
+
+```
+HDF_VERSION := "1.8.15-patch1"
+HDF_INSTALL := "/home/foobar/Software/HDF/hdf5-$(HDF_VERSION)-install"
+
+ERLCFLAGS := "-g -Wall -fPIC -I$(HDF_INSTALL)/include -I$(ERL_LIB)/lib/erl_interface-3.7.20/include -I$(ERL_LIB)/erts-6.4/include -I/usr/lib/openmpi/include"
+```
+
+
+Having built once for all our own library, replace, still in ```erlhdf5/Makefile```, ```all:$(LIBRARY)``` by ```all:#$(LIBRARY)```.
+
+Replace ```erlhdf5/rebar.config``` with following content (adapted w.r.t. paths):
+
+```
+{erl_opts, [debug_info, warnings_as_errors]}.
+{lib_dirs,["deps"]}.
+{sub_dirs, ["rel"]}.
+{src_dirs, ["src", "test"]}.
+
+{port_sources, ["c_src/*.c"]}.
+{cover_enabled, true}.
+
+{port_env, [
+			{"CC", "h5cc"},
+			{"PATH", "/home/foobar/Software/HDF/hdf5-1.8.15-patch1-install/bin:$PATH"},
+			{"LDFLAGS", "-shlib -L/home/foobar/Software/HDF/hdf5-1.8.15-patch1-install/lib"},
+			{"DRV_CFLAGS","-g -Wall -fPIC $ERL_CFLAGS"}
+	   ]
+}.
+{port_specs, [{"priv/erlhdf5.so", ["c_src/*.c"]}]}.
+
+```
+
+Then everything should go smoothly:
+
+```
+ $ cd /home/foobar/Software/erlhdf5
+ $ make clean all
+./rebar clean
+==> erlhdf5 (clean)
+rm -rf test/*.beam
+Compiling with rebar
+CC=deps/hdf5/bin/h5cc CFLAGS="-g -Wall -fPIC -I"/home/foobar/Software/HDF/Software/HDF/hdf5-"1.8.15"-install"/include -I""/home/foobar/Software/Erlang/Erlang-current-install"/lib/erlang/"/lib/erl_interface-3.7.20/include -I""/home/foobar/Software/Erlang/Erlang-current-install"/lib/erlang/"/erts-6.4/include -I/usr/lib/openmpi/include" ./rebar compile
+==> erlhdf5 (compile)
+make[1]: Entering directory `/home/foobar/Software/erlhdf5'
+[...]
+Compiling c_src/erlhdf5.c
+```
+
+
+Knowing that
+
+$ export LD_LIBRARY_PATH=/home/foobar/Software/HDF/hdf5-1.8.15-patch1-install/lib:$LD_LIBRARY_PATH
+
+is not necessary, we have now:
+
+```
+ $ cd erlhdf5
+ $ export LD_LIBRARY_PATH=/home/foobar/Software/HDF/hdf5-1.8.15-install/lib:$LD_LIBRARY_PATH
+ $ erl -pz ./ebin/
+Erlang/OTP 17 [erts-6.4] [source] [64-bit] [smp:8:8] [async-threads:10] [hipe] [kernel-poll:false]
+
+Eshell V6.4  (abort with ^G)
+1> erlhdf5:h5fopen( "dataset.nc", 'H5F_ACC_RDONLY').
+{ok,16777216}
+```
+
 
 
 
 ## About data arrays
 
-Following is an integer array with 3 rows and 4 columns.
+Let's suppose we want to manipulate an integer array with 3 rows and 4 columns.
 
 In Erlang, we make it correspond to a list of 3 tuples of 4 integer elements each:
 
 ```
-[  {0, 1, 2, 3},
-   {4, 5, 6, 7},
-   {8, 9, 10, 11}
+[  { 0,  1,  2,  3 },
+   { 4,  5,  6,  7 },
+   { 8,  9, 10, 11 }
 ]
 ```
 
@@ -48,10 +140,10 @@ In C:
 
 ```
 int a[3][4] = {
- {0, 1, 2, 3} ,   /*  initializers for row indexed by 0 */
- {4, 5, 6, 7} ,   /*  initializers for row indexed by 1 */
- {8, 9, 10, 11}   /*  initializers for row indexed by 2 */
-};
+ { 0, 1, 2, 3   },   /*  initializers for row indexed by 0 */
+ { 4, 5, 6, 7   },   /*  initializers for row indexed by 1 */
+ { 8, 9, 10, 11 }    /*  initializers for row indexed by 2 */
+} ;
 ```
 
 In memory, this will be a continuous series of integers: `{0,1,2,3,4,5,6,7,8,9,10,11}`.
