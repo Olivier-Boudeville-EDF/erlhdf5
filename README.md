@@ -7,7 +7,7 @@ This is a fork of the [original erlhdf5 binding](https://github.com/RomanShestak
 
 This binding allows to use [HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5) from [Erlang](http://erlang.org), i.e. to read and write files in the HDF5 format.
 
-While this fork is more complete and more correct (ex: HDF5 writing has been fixed), this binding is still very far from capturing all the numerous APIs provided by HDF5.
+While this fork is more complete and more correct (ex: HDF5 writing has been fixed), this binding is still very far from capturing all the numerous APIs that are provided by HDF5.
 
 
 Compared to the original work, apart the low-level code enhancements, comments additions, typing improvements and bug fixing:
@@ -21,7 +21,7 @@ Compared to the original work, apart the low-level code enhancements, comments a
 This binding has following known limitations:
 * no more than 2 dimensions allowed for dataspaces (rank=2)
 * larger datasets may incur performance penalties, since much data transformation is involved between C arrays and their Erlang counterparts
-* many HDF5 datatypes and APIs not integrated
+* many HDF5 datatypes and APIs have not yet been integrated
 
 
 ## Known limitations of this fork
@@ -44,9 +44,9 @@ Then instead we can [fetch the sources](http://www.hdfgroup.org/ftp/HDF5/current
  $ export HDF_VERSION=hdf5-1.8.15-patch1
  $ mkdir -p /home/foobar/Software/HDF/$HDF_VERSION-install
  $ cd /home/foobar/Software/HDF
- $ tar xvjf $HDF_VERSION.tar.bz2
+ $ tar xvjf ~/$HDF_VERSION.tar.bz2
  $ cd $HDF_VERSION
- $ ./configure --prefix=/home/foobar/Software/$HDF_VERSION-install
+ $ ./configure --prefix=/home/foobar/Software/HDF/$HDF_VERSION-install
  $ make && make check && make install
 ```
 
@@ -94,7 +94,7 @@ Then everything should go smoothly:
 ==> erlhdf5 (clean)
 rm -rf test/*.beam
 Compiling with rebar
-CC=deps/hdf5/bin/h5cc CFLAGS="-g -Wall -fPIC -I"/home/foobar/Software/HDF/Software/HDF/hdf5-"1.8.15"-install"/include -I""/home/foobar/Software/Erlang/Erlang-current-install"/lib/erlang/"/lib/erl_interface-3.7.20/include -I""/home/foobar/Software/Erlang/Erlang-current-install"/lib/erlang/"/erts-6.4/include -I/usr/lib/openmpi/include" ./rebar compile
+CC=deps/hdf5/bin/h5cc CFLAGS="-g -Wall -fPIC -I"/home/foobar/Software/HDF/hdf5-"1.8.15"-install"/include -I""/home/foobar/Software/Erlang/Erlang-current-install"/lib/erlang/"/lib/erl_interface-3.7.20/include -I""/home/foobar/Software/Erlang/Erlang-current-install"/lib/erlang/"/erts-6.4/include -I/usr/lib/openmpi/include" ./rebar compile
 ==> erlhdf5 (compile)
 make[1]: Entering directory `/home/foobar/Software/erlhdf5'
 [...]
@@ -104,13 +104,14 @@ Compiling c_src/erlhdf5.c
 
 Knowing that
 
+```
 $ export LD_LIBRARY_PATH=/home/foobar/Software/HDF/hdf5-1.8.15-patch1-install/lib:$LD_LIBRARY_PATH
 
 is not necessary, we have now:
+```
 
 ```
  $ cd erlhdf5
- $ export LD_LIBRARY_PATH=/home/foobar/Software/HDF/hdf5-1.8.15-install/lib:$LD_LIBRARY_PATH
  $ erl -pz ./ebin/
 Erlang/OTP 17 [erts-6.4] [source] [64-bit] [smp:8:8] [async-threads:10] [hipe] [kernel-poll:false]
 
@@ -118,6 +119,8 @@ Eshell V6.4  (abort with ^G)
 1> erlhdf5:h5fopen( "dataset.nc", 'H5F_ACC_RDONLY').
 {ok,16777216}
 ```
+
+Everything is thus properly linked.
 
 
 
