@@ -155,6 +155,7 @@ static ErlNifFunc nif_funcs[] =
   { "h5pcreate",                  1, h5pcreate },
   { "h5pclose",                   1, h5pclose },
 
+  { "datatype_name_to_handle",    1, datatype_name_to_handle },
   { "h5tcopy",                    1, h5tcopy },
   { "h5tclose",                   1, h5tclose },
   { "h5tget_class",               1, h5tget_class },
@@ -174,6 +175,7 @@ static ErlNifFunc nif_funcs[] =
 
   { "h5lt_make_dataset",          5, h5lt_make_dataset },
   { "h5lt_read_dataset_int",      2, h5lt_read_dataset_int },
+  { "h5lt_read_dataset_double",   2, h5lt_read_dataset_double },
   { "h5ltget_dataset_ndims",      2, h5ltget_dataset_ndims },
   { "h5ltget_dataset_info",       3, h5ltget_dataset_info }
 

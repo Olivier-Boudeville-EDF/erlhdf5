@@ -51,15 +51,33 @@ int convert_array_to_nif_array( ErlNifEnv* env, hsize_t size, hsize_t *arr_from,
 
 
 
-int convert_int_array_to_nif_array( ErlNifEnv* env, hsize_t size, int *arr_from,
+int convert_int_array_to_nif_array( ErlNifEnv* env, hsize_t size, int* arr_from,
   ERL_NIF_TERM* arr_to )
 {
 
-  int i;
+  int i ;
 
-  for( i = 0; i < size; i++ )
+  for ( i = 0; i < size; i++ )
   {
 	arr_to[i] = enif_make_int( env, arr_from[i] ) ;
+  }
+
+  return 0 ;
+
+}
+
+
+
+int convert_double_array_to_nif_array( ErlNifEnv* env, hsize_t size,
+  double* arr_from, ERL_NIF_TERM* arr_to )
+{
+
+  int i ;
+
+  for ( i = 0; i < size; i++ )
+  {
+	//printf( "read: double -> nif: %f / %e\n", arr_from[i], arr_from[i]);
+	arr_to[i] = enif_make_double( env, arr_from[i] ) ;
   }
 
   return 0 ;
@@ -102,8 +120,13 @@ ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
   hid_t file_dataspace_id )
 {
 
-  double * buffer_for_hdf = enif_alloc(
-	list_length * tuple_size * sizeof( double ) ) ;
+  //printf( "Writing now float array (len=%u, size=%i, elem_size=%lu)\n",
+  //	list_length, tuple_size, sizeof( double ) ) ;
+
+  hsize_t element_count = list_length * tuple_size ;
+
+  double * buffer_for_hdf = (double *) enif_alloc( 
+	element_count * sizeof( double ) ) ;
 
   if ( ! buffer_for_hdf )
 	return error_tuple( env, "Cannot allocate intermediate array memory" ) ;
@@ -113,7 +136,7 @@ ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
 
   ERL_NIF_TERM head, tail ;
 
-  const ERL_NIF_TERM *tuple_elements ;
+  const ERL_NIF_TERM * tuple_elements ;
 
   // Go through each list element (tuple), and unpack it:
   while ( enif_get_list_cell( env, tuple_list, &head, &tail ) )
@@ -148,21 +171,29 @@ ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
 		return error_tuple( env, "Cell does not contain a double value" ) ;
 	  }
 
-	  //printf( "element =%i\n", *( buffer_for_hdf + global ) );
+	  //printf( "write element =%f\n", *( buffer_for_hdf + global ) );
 
 	  global++ ;
 
 	}
 
+	// Recurses:
 	tuple_list = tail ;
 
   }
+
+  // Just one dimension:
+  hid_t mem_dataspace_id = H5Screate_simple( /* rank */ 1, &element_count,
+	/* max dims */ NULL ) ;
+
+  if ( mem_dataspace_id < 0 )
+	return error_tuple( env, "Cannot create a memory dataspace" ) ;
 
   // Finally, writes the translated data to the dataset:
   if( H5Dwrite(
 	  /* target */ dataset_id,
 	  /* cell type */ H5T_NATIVE_DOUBLE,
-	  /* memory and selection dataspace */ H5S_ALL,
+	  /* memory and selection dataspace */ mem_dataspace_id,
 	  /* selection within the file dataset's dataspace */ file_dataspace_id,
 	  /* default data transfer properties */ H5P_DEFAULT,
 	  /* source location */ buffer_for_hdf ) < 0 )

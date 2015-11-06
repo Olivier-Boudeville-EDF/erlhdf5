@@ -13,7 +13,7 @@ While this fork is more complete and more correct (ex: HDF5 writing has been fix
 Compared to the original work, apart the low-level code enhancements, comments additions, typing improvements and bug fixing:
 * datatype of stored elements can be now (native) integer or (native) double i.e. floating-point values; was: only native integers
 * a basic hyperslab support has been added, so that only part of a in-file dataset can be updated (from in-memory data); previously: datasets had to be written only in full (i.e. no dataspace size was specified, hence as many bytes as needed were read from RAM to fill the targeted dataset, possibly with unexpected extra bytes taken to fill the target space)
-
+* ```h5lt_read_dataset_double/2``` added
 
 
 ## Known binding limitations
@@ -243,3 +243,9 @@ GROUP "/" {
 ```
 
 (showing traces of likely memory corruption)
+
+
+
+## Troubleshooting
+
+If, when expanding the coverage of the binding, you have a message like ```{"init terminating in do_boot",{nif_library_not_loaded,{module,erlhdf5},{line,286}}}```, then you may have forgotten to declare the corresponding function in ``static ErlNifFunc nif_funcs[]`` (in ``c_src/erlhdf5.c``).

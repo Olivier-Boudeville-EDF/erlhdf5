@@ -70,8 +70,12 @@ int convert_array_to_nif_array( ErlNifEnv* env, hsize_t size, hsize_t *arr_from,
 int convert_nif_to_hsize_array( ErlNifEnv* env, hsize_t size,
   const ERL_NIF_TERM* arr_from, hsize_t *arr_to ) ;
 
+
 int convert_int_array_to_nif_array( ErlNifEnv* env, hsize_t size, int *arr_from,
   ERL_NIF_TERM* arr_to ) ;
+
+int convert_double_array_to_nif_array( ErlNifEnv* env, hsize_t size,
+  double* arr_from, ERL_NIF_TERM* arr_to ) ;
 
 
 ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
@@ -81,6 +85,21 @@ ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
 ERL_NIF_TERM write_int_array( hid_t dataset_id, ErlNifEnv* env,
   unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list,
   hid_t file_dataspace_id ) ;
+
+
+/*
+ * Converts a data type, specified as an atom, to its handle (integer) HDF5
+ * representation (without making a copy of it).
+ *
+ * -spec datatype_name_to_handle( datatype_name() ) ->
+ *      { 'ok', datatype_handle() } | error().
+ *
+ * Not prefixed by h5t, to avoid confusion.
+ *
+ */
+ERL_NIF_TERM datatype_name_to_handle( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] ) ;
+
 
 
 // HDF5 C API:
@@ -152,6 +171,9 @@ ERL_NIF_TERM h5lt_make_dataset( ErlNifEnv* env, int argc,
   const ERL_NIF_TERM argv[] ) ;
 
 ERL_NIF_TERM h5lt_read_dataset_int( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] ) ;
+
+ERL_NIF_TERM h5lt_read_dataset_double( ErlNifEnv* env, int argc,
   const ERL_NIF_TERM argv[] ) ;
 
 ERL_NIF_TERM h5ltget_dataset_ndims( ErlNifEnv* env, int argc,

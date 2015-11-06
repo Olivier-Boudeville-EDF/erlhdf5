@@ -43,7 +43,7 @@
 
 /*
  * Converts an HDF5 type, expressed as a string, into the actual corresponding
- * HDF5 type.
+ * HDF5 type (as an integer).
  *
  */
 static int convert_type( const char* string_type, hid_t* target_hdf_type )
@@ -74,31 +74,76 @@ static int convert_type( const char* string_type, hid_t* target_hdf_type )
 }
 
 
-// Creates a new property list as an instance of a property list class.
-ERL_NIF_TERM h5tcopy(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+
+/*
+ * Converts a data type, specified as an atom, to its handle (integer) HDF5
+ * representation (without making a copy of it).
+ *
+ * -spec datatype_name_to_handle( datatype_name() ) ->
+ *     { 'ok', datatype_handle() } | error().
+ *
+ */
+ERL_NIF_TERM datatype_name_to_handle( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] )
 {
-  hid_t dtype_id; // dataset creation property list
-  hid_t type_id;
-  ERL_NIF_TERM ret;
-  char type[MAXBUFLEN];
 
-  // parse arguments
-  check(argc == 1, "Incorrect number of arguments");
-  check(enif_get_atom(env, argv[0], type, sizeof(type), ERL_NIF_LATIN1), \
-	"cannot get type from argv");
+  check( argc == 1, "Incorrect number of arguments" ) ;
 
-  // convert type to format which hdf5 api understand
-  check(!convert_type(type, &dtype_id), "Failed to convert type");
+  char type[ MAXBUFLEN ] ;
+  check( enif_get_atom( env, argv[0], type, sizeof( type ), ERL_NIF_LATIN1 ),
+	"Cannot get type from argv" ) ;
 
-  type_id = H5Tcopy(dtype_id);
-  check(type_id > 0, "Failed to create type.");
+  // Converts type (string -> handle) to a format that the HDF5 API understands:
 
-  ret = enif_make_int(env, type_id);
-  return enif_make_tuple2(env, atom_ok, ret);
+  hid_t dtype_id ;
+  check( ! convert_type( type, &dtype_id ), "Failed to convert datatype" ) ;
+
+
+  ERL_NIF_TERM ret = enif_make_int( env, dtype_id ) ;
+
+  return enif_make_tuple2( env, atom_ok, ret ) ;
 
  error:
-  if(type_id) H5Tclose(type_id);
-  return error_tuple(env, "cannot copy type");
+
+  return error_tuple( env, "Cannot translate datatype" ) ;
+
+
+}
+
+
+/*
+ * Returns a copy of the specified datatype (as an atom, like 'H5T_NATIVE_INT')
+ * and returns it (as an handle).
+ *
+ * -spec h5tcopy( datatype_name() ) -> { 'ok', datatype_handle() } | error().
+ *
+ */
+ERL_NIF_TERM h5tcopy( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
+{
+
+  check( argc == 1, "Incorrect number of arguments" ) ;
+
+  char type[ MAXBUFLEN ] ;
+  check( enif_get_atom( env, argv[0], type, sizeof( type ), ERL_NIF_LATIN1 ),
+	"Cannot get type from argv" ) ;
+
+  // Converts type (string -> handle) to a format that the HDF5 API understands:
+
+  hid_t dtype_id ;
+  check( ! convert_type( type, &dtype_id ), "Failed to convert datatype" ) ;
+
+  hid_t type_id = H5Tcopy( dtype_id ) ;
+  check( type_id > 0, "Failed to create datatype." ) ;
+
+  ERL_NIF_TERM ret = enif_make_int( env, type_id ) ;
+
+  return enif_make_tuple2( env, atom_ok, ret ) ;
+
+ error:
+  if ( type_id )
+	H5Tclose( type_id ) ;
+
+  return error_tuple( env, "Cannot copy datatype" ) ;
 
 }
 
@@ -162,27 +207,30 @@ ERL_NIF_TERM h5tget_order(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   return enif_make_tuple2(env, atom_ok, ret);
 
  error:
-  return error_tuple(env, "Cannot get order");
-};
+  return error_tuple(env, "Cannot get order") ;
+
+}
 
 
-// Returns the byte order of an atomic datatype.
-ERL_NIF_TERM h5tget_size(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// Returns the size of specified datatype, in bytes.
+ERL_NIF_TERM h5tget_size( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 {
-  ERL_NIF_TERM ret;
-  size_t size;
-  hid_t type_id;
 
-  // parse arguments
-  check(argc == 1, "Incorrect number of arguments");
-  check(enif_get_int(env, argv[0], &type_id), "Cannot get resource from argv");
+  check( argc == 1, "Incorrect number of arguments" ) ;
 
-  size = H5Tget_size(type_id);
-  check(size > 0, "Failed to get size.");
+  hid_t type_id ;
 
-  ret = enif_make_int(env, size);
-  return enif_make_tuple2(env, atom_ok, ret);
+  check( enif_get_int( env, argv[0], &type_id ),
+	"Cannot get resource from argv" ) ;
+
+  size_t size = H5Tget_size( type_id ) ;
+  check( size > 0, "Failed to get datatype size." ) ;
+
+  ERL_NIF_TERM ret = enif_make_int( env, size ) ;
+
+  return enif_make_tuple2( env, atom_ok, ret ) ;
 
  error:
-  return error_tuple(env, "Cannot get size");
-};
+  return error_tuple( env, "Cannot get datatype size" ) ;
+
+}

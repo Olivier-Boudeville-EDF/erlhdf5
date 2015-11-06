@@ -35,7 +35,8 @@ static int unpack_int_list(ErlNifEnv* env, ERL_NIF_TERM* list, int* data);
 
 
 // Creates a new simple dataspace, and opens it for access:
-ERL_NIF_TERM h5lt_make_dataset(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM h5lt_make_dataset( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] )
 {
   hid_t file_id;
   char ds_name[MAXBUFLEN];
@@ -77,8 +78,9 @@ ERL_NIF_TERM h5lt_make_dataset(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
  error:
    if(dims_arr) enif_free(dims_arr);
    if(data) enif_free(data);
-  return error_tuple(env, "Can not make dataset");
-};
+  return error_tuple(env, "Cannot make dataset");
+
+}
 
 
 // unpack a list of ints into an array of ints
@@ -95,67 +97,174 @@ static int unpack_int_list(ErlNifEnv* env, ERL_NIF_TERM* list, int* data)
 
  error:
   return -1;
-};
+}
 
 
-// creates a new simple dataspace and opens it for access
-ERL_NIF_TERM h5lt_read_dataset_int(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+
+/*
+ * Reads specified native integer dataset from specified file.
+ *
+ * -spec h5lt_read_dataset_int( file_handle(), DatasetName::string() ) ->
+ *                 { 'ok', [ integer() ] } | error().
+ *
+ */
+ERL_NIF_TERM h5lt_read_dataset_int( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] )
 {
-  hid_t file_id;
-  char ds_name[MAXBUFLEN];
-  int *data;
-  ERL_NIF_TERM* data_arr;
-  hsize_t n_values = 1;
-  hsize_t *dims;
-  int ndims;
-  int i;
-  ERL_NIF_TERM ret;
 
-  // parse arguments
-  check(argc == 2, "Incorrect number of arguments");
-  check(enif_get_int(env, argv[0], &file_id ), "cannot get file id from argv");
-  check(enif_get_string(env, argv[1], ds_name, sizeof(ds_name), ERL_NIF_LATIN1), "cannot get dataset name from argv");
+  check( argc == 2, "Incorrect number of arguments" ) ;
 
-  // get dimensions
-  check(!H5LTget_dataset_ndims(file_id, ds_name, &ndims), "Failed to determine dataspace dimensions.");
+  hid_t file_id ;
+  check( enif_get_int( env, argv[0], &file_id ),
+	"Cannot get file handle from argv" ) ;
 
-  //get dataset info
-  dims = enif_alloc(ndims * sizeof(hsize_t));
-  check(!H5LTget_dataset_info(file_id, ds_name, dims, NULL, NULL), "Failed to get info about dataset.");
 
-  // find out a number of values in the dataset
-  for(i = 0; i < ndims; i++){
-	n_values = n_values * dims[i];
+  char ds_name[ MAXBUFLEN ] ;
+
+  check( enif_get_string( env, argv[1], ds_name, sizeof(ds_name),
+	  ERL_NIF_LATIN1 ), "Cannot get the name of dataset from argv" ) ;
+
+  // Get the dimensions of this dataset:
+  int ndims ;
+
+  check( ! H5LTget_dataset_ndims( file_id, ds_name, &ndims ),
+	"Failed to determine dataspace dimensions." ) ;
+
+  // Get dataset information:
+  hsize_t * dims = enif_alloc( ndims * sizeof( hsize_t ) ) ;
+
+  check( ! H5LTget_dataset_info( file_id, ds_name, dims, NULL, NULL),
+	"Failed to get information about dataset." ) ;
+
+  // Finds out the total number of values in the dataset from the dimensions:
+  hsize_t n_values = 1 ;
+
+  int i ;
+
+  for( i = 0; i < ndims; i++ )
+  {
+	n_values = n_values * dims[i] ;
   }
 
-  // allocate space to hold dataset values
-  data = enif_alloc(n_values * sizeof(int));
+  // Allocates the corresponding space to hold the dataset values:
+  int * data = enif_alloc( n_values * sizeof( int ) ) ;
 
-  // read a dataset
-  check(!H5LTread_dataset_int(file_id, ds_name, data), "Failed to read dataset.");
+  // Reads that dataset:
+  check( ! H5LTread_dataset_int( file_id, ds_name, data ),
+	"Failed to read dataset." ) ;
 
-  // convert array of ints into nif
-  data_arr = (ERL_NIF_TERM*)enif_alloc(sizeof(ERL_NIF_TERM) * n_values);
-  check(!convert_int_array_to_nif_array(env, n_values, data, data_arr), "cannot convert array to nif");
+  // Converts the array of ints into a nif array:
+  ERL_NIF_TERM * data_arr = (ERL_NIF_TERM*) enif_alloc(
+	sizeof( ERL_NIF_TERM ) * n_values ) ;
 
-  // make a list of ERL_NIF_TERM to return to the caller
-  ret = enif_make_list_from_array(env, data_arr, n_values);
+  check( ! convert_int_array_to_nif_array( env, n_values, data, data_arr ),
+	"Cannot convert array to nif" ) ;
 
-  // cleanup
-  enif_free(dims);
-  enif_free(data);
+  // Makes a list of ERL_NIF_TERM, to return to the caller:
+  ERL_NIF_TERM ret = enif_make_list_from_array( env, data_arr, n_values ) ;
 
-  return enif_make_tuple2(env, atom_ok, ret);
+  // Cleanup:
+  enif_free( dims ) ;
+  enif_free( data ) ;
+
+  return enif_make_tuple2( env, atom_ok, ret ) ;
 
  error:
-  if(dims) enif_free(dims);
-  if(data) enif_free(data);
-  return error_tuple(env, "Can not read dataset");
-};
+  if ( dims )
+	enif_free( dims ) ;
+
+  if ( data )
+	enif_free( data ) ;
+
+  return error_tuple( env, "Cannot read integer dataset" ) ;
+
+}
+
+
+
+/*
+ * Reads specified native double (floating-point) dataset from specified file.
+ *
+ * -spec h5lt_read_dataset_double( file_handle(), DatasetName::string() ) ->
+ *                 { 'ok', [ float() ] } | error().
+ *
+ */
+ERL_NIF_TERM h5lt_read_dataset_double( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] )
+{
+
+  check( argc == 2, "Incorrect number of arguments" ) ;
+
+  hid_t file_id ;
+  check( enif_get_int( env, argv[0], &file_id ),
+	"Cannot get file handle from argv" ) ;
+
+
+  char ds_name[ MAXBUFLEN ] ;
+
+  check( enif_get_string( env, argv[1], ds_name, sizeof(ds_name),
+	  ERL_NIF_LATIN1 ), "Cannot get the name of dataset from argv" ) ;
+
+  // Get the dimensions of this dataset:
+  int ndims ;
+
+  check( ! H5LTget_dataset_ndims( file_id, ds_name, &ndims ),
+	"Failed to determine dataspace dimensions." ) ;
+
+  // Get dataset information:
+  hsize_t * dims = enif_alloc( ndims * sizeof( hsize_t ) ) ;
+
+  check( ! H5LTget_dataset_info( file_id, ds_name, dims, NULL, NULL),
+	"Failed to get information about dataset." ) ;
+
+  // Finds out the total number of values in the dataset from the dimensions:
+  hsize_t n_values = 1 ;
+
+  int i ;
+
+  for ( i = 0; i < ndims; i++ )
+  {
+	n_values = n_values * dims[i] ;
+  }
+
+  // Allocates the corresponding space to hold the dataset values:
+  double * data = enif_alloc( n_values * sizeof( double ) ) ;
+
+  // Reads that dataset:
+  check( ! H5LTread_dataset_double( file_id, ds_name, data ),
+	"Failed to read dataset." ) ;
+
+  // Converts the array of ints into a nif array:
+  ERL_NIF_TERM * data_arr = (ERL_NIF_TERM*) enif_alloc(
+	sizeof( ERL_NIF_TERM ) * n_values ) ;
+
+  check( ! convert_double_array_to_nif_array( env, n_values, data, data_arr ),
+	"Cannot convert array to nif" ) ;
+
+  // Makes a list of ERL_NIF_TERM, to return to the caller:
+  ERL_NIF_TERM ret = enif_make_list_from_array( env, data_arr, n_values ) ;
+
+  // Cleanup:
+  enif_free( dims ) ;
+  enif_free( data ) ;
+
+  return enif_make_tuple2( env, atom_ok, ret ) ;
+
+ error:
+  if ( dims )
+	enif_free( dims ) ;
+
+  if ( data )
+	enif_free( data ) ;
+
+  return error_tuple( env, "Cannot read long dataset" ) ;
+
+}
 
 
 // Determines the dimensionality of a dataspace.
-ERL_NIF_TERM h5ltget_dataset_ndims(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM h5ltget_dataset_ndims( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] )
 {
   hid_t file_id;
   int ndims;

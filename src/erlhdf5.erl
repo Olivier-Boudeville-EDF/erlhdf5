@@ -39,7 +39,8 @@
 
 
 % H5T, about datatypes:
--export( [ h5tcopy/1, h5tclose/1, h5tget_class/1, h5tget_order/1, h5tget_size/1
+-export( [ datatype_name_to_handle/1, h5tcopy/1, h5tclose/1, h5tget_class/1,
+		   h5tget_order/1, h5tget_size/1
 		 ] ).
 
 
@@ -51,7 +52,8 @@
 
 % H5LT, about HDF5 Lite:
 -export( [ h5lt_make_dataset/5, h5lt_read_dataset_int/2,
-		   h5ltget_dataset_ndims/2, h5ltget_dataset_info/3 ] ).
+		   h5lt_read_dataset_double/2, h5ltget_dataset_ndims/2,
+		   h5ltget_dataset_info/3 ] ).
 
 
 
@@ -81,6 +83,8 @@
 -type file_handle()          :: handle().
 -type dataset_handle()       :: handle().
 -type dataspace_handle()     :: handle().
+
+-type datatype_name()        :: atom().
 -type datatype_handle()      :: handle().
 
 -type property_list_handle() :: handle().
@@ -271,11 +275,22 @@ h5pclose( _Handle ) ->
 % H5T section: about datatypes.
 
 
-
-% Copies an existing datatype and returns it.
+% Converts a data type, specified as an atom, to its handle (integer) HDF5
+% representation (without making a copy of it).
 %
--spec h5tcopy( datatype_handle() ) -> { 'ok', datatype_handle() } | error().
-h5tcopy( _Handle ) ->
+% (binding exported helper)
+%
+-spec datatype_name_to_handle( datatype_name() ) ->
+									 { 'ok', datatype_handle() } | error().
+datatype_name_to_handle( _DatatypeName ) ->
+	nif_error( ?LINE ).
+
+
+% Copies an existing datatype (specified as an atom like 'H5T_NATIVE_INT') and
+% returns it (as an handle).
+%
+-spec h5tcopy( datatype_name() ) -> { 'ok', datatype_handle() } | error().
+h5tcopy( _DatatypeName ) ->
 	nif_error( ?LINE ).
 
 
@@ -320,7 +335,7 @@ h5tget_size( _Handle ) ->
 % Creates a new dataset.
 %
 -spec h5dcreate( File::file_handle(), Name::string(), Type::datatype_handle(),
-				 Space::dataspace_handle(), 
+				 Space::dataspace_handle(),
 				 Prop::dataset_creation_proplist() ) ->
 					   { 'ok', dataset_handle() } | error().
 h5dcreate( _File, _Name, _Type, _Space, _Prop ) ->
@@ -421,11 +436,19 @@ h5lt_make_dataset( _FileHandler, _DatasetName, _Rank, _Dims, _Data ) ->
 
 
 
-% Reads a dataset from file.
+% Reads specified integer dataset from specified file.
 %
 -spec h5lt_read_dataset_int( file_handle(), DatasetName::string() ) ->
-								   'ok' | error().
+								   { 'ok', [ integer() ] } | error().
 h5lt_read_dataset_int( _Handle, _DatasetName ) ->
+	nif_error( ?LINE ).
+
+
+% Reads specified double dataset from specified file.
+%
+-spec h5lt_read_dataset_double( file_handle(), DatasetName::string() ) ->
+								   { 'ok', [ float() ] } | error().
+h5lt_read_dataset_double( _Handle, _DatasetName ) ->
 	nif_error( ?LINE ).
 
 

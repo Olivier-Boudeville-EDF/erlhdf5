@@ -316,7 +316,7 @@ ERL_NIF_TERM h5sselect_hyperslab( ErlNifEnv* env, int argc,
 
   }
 
-  // Now we have our four buffers right.
+  // Now that we have our four buffers right:
 
   if ( H5Sselect_hyperslab( dataspace_id, selection_op, offset_buffer,
 	  stride_buffer, count_buffer, block_buffer ) < 0  )
