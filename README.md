@@ -14,6 +14,7 @@ Compared to the original work, apart the low-level code enhancements, comments a
 * datatype of stored elements can be now (native) integer or (native) double i.e. floating-point values; was: only native integers
 * a basic hyperslab support has been added, so that only part of a in-file dataset can be updated (from in-memory data); previously: datasets had to be written only in full (i.e. no dataspace size was specified, hence as many bytes as needed were read from RAM to fill the targeted dataset, possibly with unexpected extra bytes taken to fill the target space)
 * ```h5lt_read_dataset_double/2``` added
+* ```h5ltget_dataset_info/3``` returns a tuple of dimensions, not a list (more logical that way)
 
 
 ## Known binding limitations

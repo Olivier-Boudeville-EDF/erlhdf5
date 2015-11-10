@@ -20,8 +20,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "hdf5.h"
+
 #include "erl_nif.h"
+
 #include "dbg.h"
 #include "erlhdf5.h"
 
@@ -29,23 +32,30 @@
 // H5S: Dataspace Interface, dataspace definition and access routines.
 
 
-// Creates a new simple dataspace, and opens it for access.
+/*
+ * Creates a new simple dataspace, and opens it for access, returning a
+ * dataspace identifier.
+ *
+ * -spec h5screate_simple( rank(), tuple( dimension_size() ) ) ->
+ *   { 'ok', dataspace_handle() } | error().
+ *
+ */
 ERL_NIF_TERM h5screate_simple( ErlNifEnv* env, int argc,
   const ERL_NIF_TERM argv[] )
 {
 
-  const ERL_NIF_TERM *terms ;
+  // Parses arguments:
+  check( argc == 2, "Incorrect number of arguments" ) ;
 
   // Number of dimensions of dataspace:
   int rank ;
+  check( enif_get_int( env, argv[0], &rank ), "Cannot get rank from argv" ) ;
 
   int arity ;
+  const ERL_NIF_TERM* terms ;
 
-  // Parses arguments:
-  check( argc == 2, "Incorrect number of arguments" ) ;
-  check( enif_get_int( env, argv[0], &rank ), "Cannot get rank from argv" ) ;
   check( enif_get_tuple( env, argv[1], &arity, &terms ),
-	"Cannot get terms from argv" ) ;
+	"Cannot get dimension sizes from argv" ) ;
 
   // Makes sure that rank is matching arity:
   check( rank <= 2, "Up to two dimensions supported only" ) ;
@@ -201,12 +211,62 @@ ERL_NIF_TERM h5sselect_hyperslab( ErlNifEnv* env, int argc,
 
   // Offset is argc=2:
   if ( ! enif_get_tuple( env, argv[2], &tuple_size, &tuple_elements ) )
-	  return error_tuple( env, "Offset parameter is not a tuple" ) ;
+  {
+
+	/*
+	 * Here Offset is not a tuple, hence we must be in a monodimensional
+	 * setting, which is special-cased here:
+	 *
+	 */
+
+	//tuple_size = 1 ;
+
+	int int_offset ;
+	if ( ! enif_get_int( env, argv[2], &int_offset ) )
+	  return error_tuple( env, "Offset does not contain an integer" ) ;
+	hsize_t offset = int_offset ;
+
+	int int_stride ;
+	if ( ! enif_get_int( env, argv[3], &int_stride ) )
+	  return error_tuple( env, "Stride does not contain an integer" ) ;
+	hsize_t stride = int_stride ;
+
+	int int_count ;
+	if ( ! enif_get_int( env, argv[4], &int_count ) )
+	  return error_tuple( env, "Count does not contain an integer" ) ;
+	hsize_t count = int_count ;
+
+	int int_block ;
+	if ( ! enif_get_int( env, argv[5], &int_block ) )
+	  return error_tuple( env, "Block does not contain an integer" ) ;
+	hsize_t block = int_block ;
+
+	//printf( "offset = %llu, stride = %llu, count = %llu, block = %llu.\n",
+	//  offset, stride, count, block ) ;
+
+	if ( H5Sselect_hyperslab( dataspace_id, selection_op, &offset, &stride,
+		&count, &block ) < 0  )
+	{
+
+	  //H5Eprint( H5Eget_current_stack(), /* error stream */ stderr ) ;
+
+	  return error_tuple( env, "Hyperslab selection failed" ) ;
+
+	}
+
+	//printf( "Selection succeeded.\n" ) ;
+
+	return atom_ok ;
+
+  }
+
+  // Here we are at least bidimensional.
 
   //printf( "Offset of size %u.\n", tuple_size ) ;
 
   // Kept for comparison:
   int overall_tuple_size = tuple_size ;
+
 
   int buffer_size = tuple_size * sizeof( hsize_t ) ;
 

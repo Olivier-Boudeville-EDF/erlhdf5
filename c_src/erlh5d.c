@@ -51,6 +51,9 @@ static herr_t convert_space_status( H5D_space_status_t,  char* ) ;
 struct DataDescriptor
 {
 
+  // Number of dimensions of the data:
+  unsigned int dimension_count ;
+
   // Type of an atomic element in the data:
   cell_type type ;
 
@@ -70,20 +73,22 @@ struct DataDescriptor
 typedef enum { false, true } bool ;
 
 
-// Forward declaration:
-bool detect_type( ERL_NIF_TERM tuple_list, ErlNifEnv* env,
+// Forward declarations:
+bool detect_type( ERL_NIF_TERM data_list, ErlNifEnv* env,
   struct DataDescriptor * detected_desc ) ;
+
+cell_type detect_cell_type( ERL_NIF_TERM term, ErlNifEnv* env ) ;
 
 
 // Converts space status into a string.
 static herr_t convert_space_status( H5D_space_status_t space_status,
   char* space_status_str )
 {
-  if( space_status == H5D_SPACE_STATUS_ALLOCATED )
+  if ( space_status == H5D_SPACE_STATUS_ALLOCATED )
 	strcpy( space_status_str, "H5D_SPACE_STATUS_ALLOCATED" ) ;
-  else if( space_status == H5D_SPACE_STATUS_NOT_ALLOCATED )
+  else if ( space_status == H5D_SPACE_STATUS_NOT_ALLOCATED )
 	strcpy( space_status_str, "H5D_SPACE_STATUS_NOT_ALLOCATED" ) ;
-  else if( space_status == H5D_SPACE_STATUS_PART_ALLOCATED )
+  else if ( space_status == H5D_SPACE_STATUS_PART_ALLOCATED )
 	strcpy( space_status_str, "H5D_SPACE_STATUS_PART_ALLOCATED" ) ;
   else
 	sentinel( "Unknown status %d", space_status ) ;
@@ -355,11 +360,11 @@ ERL_NIF_TERM h5dwrite_2( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
   if ( ! enif_get_int( env, argv[0], &dataset_id ) )
 	return error_tuple( env, "Cannot get dataset handle from argv" ) ;
 
-  ERL_NIF_TERM tuple_list = argv[1] ;
+  ERL_NIF_TERM data_list = argv[1] ;
 
   struct DataDescriptor detected_desc ;
 
-  if ( ! detect_type( tuple_list, env, &detected_desc )  )
+  if ( ! detect_type( data_list, env, &detected_desc )  )
 	return detected_desc.error_term ;
 
   /*
@@ -367,23 +372,57 @@ ERL_NIF_TERM h5dwrite_2( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
    * (on the heap rather than on the stack, as it can be big)
    */
 
-  switch( detected_desc.type )
+  // Clearer than a switch, as needing blocks:
+  if ( detected_desc.dimension_count == 1 )
   {
 
-  case FLOAT:
-	return write_float_array( dataset_id, env, detected_desc.len,
-	  detected_desc.size, tuple_list,
-	  /* using the full file dataspace */ H5S_ALL ) ;
-	break ;
+	switch( detected_desc.type )
+	{
 
-  case INTEGER:
-	return write_int_array( dataset_id, env, detected_desc.len,
-	  detected_desc.size, tuple_list,
-	  /* using the full file dataspace */ H5S_ALL ) ;
-	break ;
+	case INTEGER:
+	  return write_ints_to_array( dataset_id, env, detected_desc.len,
+		data_list, /* using the full file dataspace */ H5S_ALL ) ;
+	  break ;
 
-  default:
-	return error_tuple( env, "Unsupported datatype for writing" ) ;
+	case FLOAT:
+	  return write_floats_to_array( dataset_id, env, detected_desc.len,
+		data_list, /* using the full file dataspace */ H5S_ALL ) ;
+	  break ;
+
+	default:
+	  return error_tuple( env, "Unsupported datatype for 1D writing" ) ;
+
+	}
+
+  }
+  else if ( detected_desc.dimension_count == 2 )
+  {
+
+	switch( detected_desc.type )
+	{
+
+	case INTEGER:
+	  return write_int_tuples_to_array( dataset_id, env, detected_desc.len,
+		detected_desc.size, data_list,
+		/* using the full file dataspace */ H5S_ALL ) ;
+	  break ;
+
+	case FLOAT:
+	  return write_float_tuples_to_array( dataset_id, env, detected_desc.len,
+		detected_desc.size, data_list,
+		/* using the full file dataspace */ H5S_ALL ) ;
+	  break ;
+
+	default:
+	  return error_tuple( env, "Unsupported datatype for 2D writing" ) ;
+
+	}
+
+  }
+  else
+  {
+
+	return error_tuple( env, "Unsupported datatype dimension for writing" ) ;
 
   }
 
@@ -398,7 +437,7 @@ ERL_NIF_TERM h5dwrite_2( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
  * Like h5dwrite/2, except that a target dataspace is used, instead of using the
  * full file dataspace.
  *
- * -spec h5dwrite( dataset_handle(), dataspace_handle(), data() ) ->
+ * -spec h5dwrite_3( dataset_handle(), dataspace_handle(), data() ) ->
  *					  'ok' | error().
  *
  */
@@ -417,11 +456,11 @@ ERL_NIF_TERM h5dwrite_3( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
   if ( ! enif_get_int( env, argv[1], &dataspace_id ) )
 	return error_tuple( env, "Cannot get dataspace handle from argv" ) ;
 
-  ERL_NIF_TERM tuple_list = argv[2] ;
+  ERL_NIF_TERM data_list = argv[2] ;
 
   struct DataDescriptor detected_desc ;
 
-  if ( ! detect_type( tuple_list, env, &detected_desc ) )
+  if ( ! detect_type( data_list, env, &detected_desc ) )
 	return detected_desc.error_term ;
 
   /*
@@ -429,21 +468,56 @@ ERL_NIF_TERM h5dwrite_3( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
    * (on the heap rather than on the stack, as can be big)
    */
 
-  switch( detected_desc.type )
+
+  // Clearer than a switch, as needing blocks:
+  if ( detected_desc.dimension_count == 1 )
   {
 
-  case FLOAT:
-	return write_float_array( dataset_id, env, detected_desc.len,
-	  detected_desc.size, tuple_list, dataspace_id ) ;
-	break ;
+	switch( detected_desc.type )
+	{
 
-  case INTEGER:
-	return write_int_array( dataset_id, env, detected_desc.len,
-	  detected_desc.size, tuple_list, dataspace_id ) ;
-	break ;
+	case INTEGER:
+	  return write_ints_to_array( dataset_id, env, detected_desc.len,
+		data_list, dataspace_id ) ;
+	  break ;
 
-  default:
-	return error_tuple( env, "Unsupported type for writing." ) ;
+	case FLOAT:
+	  return write_floats_to_array( dataset_id, env, detected_desc.len,
+		data_list, dataspace_id ) ;
+	  break ;
+
+	default:
+	  return error_tuple( env, "Unsupported datatype for 1D writing" ) ;
+
+	}
+
+  }
+  else if ( detected_desc.dimension_count == 2 )
+  {
+
+	switch( detected_desc.type )
+	{
+
+	case INTEGER:
+	  return write_int_tuples_to_array( dataset_id, env, detected_desc.len,
+		detected_desc.size, data_list, dataspace_id ) ;
+	  break ;
+
+	case FLOAT:
+	  return write_float_tuples_to_array( dataset_id, env, detected_desc.len,
+		detected_desc.size, data_list, dataspace_id ) ;
+	  break ;
+
+	default:
+	  return error_tuple( env, "Unsupported datatype for 2D writing" ) ;
+
+	}
+
+  }
+  else
+  {
+
+	return error_tuple( env, "Unsupported datatype dimension for writing" ) ;
 
   }
 
@@ -452,33 +526,46 @@ ERL_NIF_TERM h5dwrite_3( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 
 
 /*
- * Detects the type, in [ 'FLOAT', 'INTEGER' ], of the elements aggregated in
- * the specified list of tuples.
+ * Detects the dimension (in [1,2]) and type (in [ 'INTEGER', 'FLOAT' ]) of the
+ * elements aggregated in the specified data list.
  *
- * This list is assumed to contain tuples of the same size, whose elements have
- * all the same type (hence checking the first element of the first tuple is
- * sufficient)
+ * This list is assumed to contain either directly atomic, homogeneous elements,
+ * or tuples of all the same size, whose elements have all the same type (hence
+ * checking the first element of the first tuple is sufficient).
  *
- * Returns whether the execution is a success.
+ * Said differently, the data_list is either [ T ] or [ tuple(T) ], with T ::
+ * integer() | float().
+ *
+ * Returns whether the execution is a success, and fills specified data
+ * descriptor.
  *
  * (helper)
  *
  */
-bool detect_type( ERL_NIF_TERM tuple_list, ErlNifEnv* env,
-  struct DataDescriptor * detected_desc )
+bool detect_type( ERL_NIF_TERM data_list, ErlNifEnv* env,
+  struct DataDescriptor* detected_desc )
 {
 
-  // The input array will be of type, in C: int[U][V] our double[U][V].
+  /*
+   * The input array will be of type, in C, in: int[U], double[U], int[U][V] or
+   * double[U][V].
+   *
+   */
 
   /*
-	Gets the dimensions of input list : length of list is U (i.e. there are U
-	data tuples), and size of tuples is V. All tuples are expected to be of the
-	same size (same number of elements, V) and homogeneous (all their elements
-	are of the same type, typically native int or float).
+   * Gets the dimensions of input data: length of list is U (i.e. there are U
+   * data elements), and size of tuples is V (possibly 1, if no tuple at all).
+   *
+   * All tuples are expected to be of the same size (same number of elements, V)
+   * and homogeneous (all their elements are of the same type, typically native
+   * int or double).
+   *
    */
-  if ( ! enif_get_list_length( env, tuple_list, &(detected_desc->len) ) )
+
+  if ( ! enif_get_list_length( env, data_list, &(detected_desc->len) ) )
   {
 
+	// Probably not a list then:
 	detected_desc->error_term = error_tuple( env,
 	  "Cannot get length of input list" ) ;
 
@@ -503,13 +590,15 @@ bool detect_type( ERL_NIF_TERM tuple_list, ErlNifEnv* env,
    * element found:
    *
    * Note: we could/should check that all tuples have the same size and that
-   * their elements are all of the same type.
+   * their elements are all of the same type (better done optionally and
+   * Erlang-level)
    *
    */
 
   ERL_NIF_TERM head, tail ;
 
-  if ( ! enif_get_list_cell( env, tuple_list, &head, &tail ) )
+  // Unlikely to fail:
+  if ( ! enif_get_list_cell( env, data_list, &head, &tail ) )
   {
 
 	 detected_desc->error_term = error_tuple( env,
@@ -519,54 +608,90 @@ bool detect_type( ERL_NIF_TERM tuple_list, ErlNifEnv* env,
 
   }
 
-  const ERL_NIF_TERM *terms ;
+
+  const ERL_NIF_TERM * terms ;
 
   if ( ! enif_get_tuple( env, head, &(detected_desc->size), &terms ) )
   {
 
-	 detected_desc->error_term = error_tuple( env,
-		"Cannot get the size of the first tuple from the input list" ) ;
+	/*
+	 * No tuple found at first position, hence here we should have a
+	 * mono-dimensional list of (atomic) elements:
+	 *
+	 */
 
-	 return false ;
+	detected_desc->dimension_count = 1 ;
+
+	detected_desc->type = detect_cell_type( head, env ) ;
+
+	if ( detected_desc->type == UNKNOWN_TYPE )
+	{
+
+	  detected_desc->error_term = error_tuple( env,
+		"Unknown cell type detected" ) ;
+
+	  return false ;
+
+	}
+
+	// detected_desc->len already set.
+	detected_desc->size = 1 ;
+
+	return true ;
 
   }
 
-  //printf( "Tuple size (V): %u\n", tuple_size ) ;
+  /*
+   * Here we found a tuple, are in dimension at least two, we suppose exactly
+   * two:
+   *
+   */
+  detected_desc->dimension_count = 2 ;
+
+  detected_desc->type = detect_cell_type( terms[0], env ) ;
+
+  // All fields filled.
+
+  // No error here:
+  return true ;
+
+}
+
+
+
+// Returns the type of specified cell.
+cell_type detect_cell_type( ERL_NIF_TERM term, ErlNifEnv* env )
+{
 
   /*
    * Let's determine now the type of the cell elements, by assuming it is first
-   * a floating-point value (a double), then a (native) integer:
+   * a floating-point value (a native double), then a (native) integer:
    *
    */
 
-  double floating_point_value ;
   int integer_value ;
+  double floating_point_value ;
 
-  if ( enif_get_double( env, terms[0], &floating_point_value ) )
-  {
-
-	//printf( "Detected float (double) %f.\n", floating_point_value ) ;
-	detected_desc->type = FLOAT ;
-
-  }
-  else if ( enif_get_int( env, terms[0], &integer_value ) )
+  if ( enif_get_int( env, term, &integer_value ) )
   {
 
 	//printf( "Detected integer %i.\n", integer_value ) ;
-	detected_desc->type = INTEGER ;
+	return INTEGER ;
+
+  }
+  else if ( enif_get_double( env, term, &floating_point_value ) )
+  {
+
+	//printf( "Detected float (double) %f.\n", floating_point_value ) ;
+	return FLOAT ;
 
   }
   else
   {
 
-	 detected_desc->error_term = error_tuple( env, "Unsupported cell type." ) ;
-
-	 return false ;
+	 return UNKNOWN_TYPE ;
 
   }
-
-  // No error here:
-  return true ;
 
 }
 

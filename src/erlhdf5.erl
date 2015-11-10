@@ -92,6 +92,8 @@
 -type dataset_creation_proplist() :: property_list_handle().
 -type dataset_access_proplist()   :: property_list_handle().
 
+-type dataset_name() :: string().
+
 
 -type error() :: { 'error', Reason::string() }.
 
@@ -168,7 +170,7 @@ get_priv_dir( Module ) ->
 
 % Creates a (new) HDF5 file.
 %
--spec h5fcreate( FileName::string(), Flag::atom() ) ->
+-spec h5fcreate( File::string(), Flag::atom() ) ->
 					   { 'ok', file_handle() } | error().
 h5fcreate( _FileName, _Flag ) ->
 	nif_error( ?LINE ).
@@ -177,7 +179,7 @@ h5fcreate( _FileName, _Flag ) ->
 
 % Opens an (already-existing) HDF5 file.
 %
--spec h5fopen( FileName::string(), Flag::atom() ) ->
+-spec h5fopen( File::string(), Flag::atom() ) ->
 				 { 'ok', file_handle() } | error().
 h5fopen( _FileName, _Flag ) ->
 	nif_error( ?LINE ).
@@ -334,7 +336,7 @@ h5tget_size( _Handle ) ->
 
 % Creates a new dataset.
 %
--spec h5dcreate( File::file_handle(), Name::string(), Type::datatype_handle(),
+-spec h5dcreate( file_handle(), dataset_name(), Type::datatype_handle(),
 				 Space::dataspace_handle(),
 				 Prop::dataset_creation_proplist() ) ->
 					   { 'ok', dataset_handle() } | error().
@@ -345,7 +347,7 @@ h5dcreate( _File, _Name, _Type, _Space, _Prop ) ->
 
 % Opens an existing dataset.
 %
--spec h5dopen( file_handle(), Name::string() ) ->
+-spec h5dopen( file_handle(), dataset_name() ) ->
 					 { 'ok', dataset_handle() } | error().
 h5dopen( _File, _Name ) ->
 	nif_error( ?LINE ).
@@ -354,7 +356,7 @@ h5dopen( _File, _Name ) ->
 
 % Opens an existing dataset with specified access property list.
 %
--spec h5dopen( File::file_handle(), Name::string(), AccessPropList::any() ) ->
+-spec h5dopen( file_handle(), dataset_name(), AccessPropList::any() ) ->
 					 { 'ok', dataset_handle() } | error().
 h5dopen( _File, _Name, _AccessPropList ) ->
 	nif_error( ?LINE ).
@@ -429,7 +431,7 @@ h5dget_space( _Handle ) ->
 
 % Writes a dataset to file.
 %
--spec h5lt_make_dataset( file_handle(), DatasetName::string(), rank(),
+-spec h5lt_make_dataset( file_handle(), dataset_name(), rank(),
 						 Dims::dimensions(), Data::list() ) -> 'ok' | error().
 h5lt_make_dataset( _FileHandler, _DatasetName, _Rank, _Dims, _Data ) ->
 	nif_error( ?LINE ).
@@ -438,7 +440,7 @@ h5lt_make_dataset( _FileHandler, _DatasetName, _Rank, _Dims, _Data ) ->
 
 % Reads specified integer dataset from specified file.
 %
--spec h5lt_read_dataset_int( file_handle(), DatasetName::string() ) ->
+-spec h5lt_read_dataset_int( file_handle(), dataset_name() ) ->
 								   { 'ok', [ integer() ] } | error().
 h5lt_read_dataset_int( _Handle, _DatasetName ) ->
 	nif_error( ?LINE ).
@@ -446,7 +448,7 @@ h5lt_read_dataset_int( _Handle, _DatasetName ) ->
 
 % Reads specified double dataset from specified file.
 %
--spec h5lt_read_dataset_double( file_handle(), DatasetName::string() ) ->
+-spec h5lt_read_dataset_double( file_handle(), dataset_name() ) ->
 								   { 'ok', [ float() ] } | error().
 h5lt_read_dataset_double( _Handle, _DatasetName ) ->
 	nif_error( ?LINE ).
@@ -455,7 +457,7 @@ h5lt_read_dataset_double( _Handle, _DatasetName ) ->
 
 % Returns the dimensionality of a dataset.
 %
--spec h5ltget_dataset_ndims( dataset_handle(), DatasetName::string() ) ->
+-spec h5ltget_dataset_ndims( dataset_handle(), dataset_name() ) ->
 				   { 'ok', integer() } | error().
 h5ltget_dataset_ndims( _Handle, _DatasetName ) ->
 	nif_error( ?LINE ).
@@ -464,7 +466,10 @@ h5ltget_dataset_ndims( _Handle, _DatasetName ) ->
 
 % Returns the dimensionality of specified dataset.
 %
--spec h5ltget_dataset_info( dataset_handle(), DatasetName::string(), rank() ) ->
+% -spec h5ltget_dataset_info( file_handle(), dataset_name(), rank() ) ->
+%           { ok, tuple( dimension() ) } | error().
+%
+-spec h5ltget_dataset_info( dataset_handle(), dataset_name(), rank() ) ->
 								  { 'ok', list() } | error().
 h5ltget_dataset_info( _Handle, _DatasetName, _Rank ) ->
 	nif_error( ?LINE ).

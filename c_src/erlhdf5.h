@@ -56,7 +56,7 @@ typedef struct
 
 
 // To identify the type of cell elements:
-typedef enum { INTEGER, FLOAT } cell_type ;
+typedef enum { UNKNOWN_TYPE, INTEGER, FLOAT } cell_type ;
 
 
 // C prototypes for helpers:
@@ -78,13 +78,24 @@ int convert_double_array_to_nif_array( ErlNifEnv* env, hsize_t size,
   double* arr_from, ERL_NIF_TERM* arr_to ) ;
 
 
-ERL_NIF_TERM write_float_array( hid_t dataset_id, ErlNifEnv* env,
-  unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list,
+// Read/write helpers, for [ T ] and [ tuple(T) ] where T :: int() | float():
+
+
+ERL_NIF_TERM write_ints_to_array( hid_t dataset_id, ErlNifEnv* env,
+  unsigned int list_length, ERL_NIF_TERM int_list, hid_t file_dataspace_id ) ;
+
+ERL_NIF_TERM write_int_tuples_to_array( hid_t dataset_id, ErlNifEnv* env,
+  unsigned int list_length, int tuple_size, ERL_NIF_TERM int_tuple_list,
   hid_t file_dataspace_id ) ;
 
-ERL_NIF_TERM write_int_array( hid_t dataset_id, ErlNifEnv* env,
-  unsigned int list_length, int tuple_size, ERL_NIF_TERM tuple_list,
+
+ERL_NIF_TERM write_floats_to_array( hid_t dataset_id, ErlNifEnv* env,
+  unsigned int list_length, ERL_NIF_TERM float_list, hid_t file_dataspace_id ) ;
+
+ERL_NIF_TERM write_float_tuples_to_array( hid_t dataset_id, ErlNifEnv* env,
+  unsigned int list_length, int tuple_size, ERL_NIF_TERM float_tuple_list,
   hid_t file_dataspace_id ) ;
+
 
 
 /*
