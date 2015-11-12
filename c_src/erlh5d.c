@@ -155,8 +155,8 @@ ERL_NIF_TERM h5dcreate( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 /*
  * Opens from specified file an existing dataset.
  *
- * This corresponds to h5dopen/{2,3}, depending on whether an access property
- * list is specified:
+ * This implementation corresponds to h5dopen/{2,3}, depending on whether an
+ * access property list is specified:
  *
  * -spec h5dopen( HDF5File::file_handle(), DatasetName::string() ) ->
  *   { 'ok', dataset_handle() } | error().
@@ -173,7 +173,7 @@ ERL_NIF_TERM h5dopen( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
   // Dataset access property list:
   hid_t ds_proplist ;
 
-   switch ( argc )
+  switch ( argc )
   {
 
   case 2:
@@ -185,7 +185,7 @@ ERL_NIF_TERM h5dopen( ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[] )
 
 	  /*
 	   * Actually an atom like 'H5P_DATASET_ACCESS' should be specified here
-	   * (h5dopen/3 not functional)
+	   * (hence h5dopen/3 currently not functional)
 	   *
 	   */
 	  hid_t class_id ;
