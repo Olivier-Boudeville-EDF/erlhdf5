@@ -32,6 +32,8 @@
 
 #define MAXBUFLEN 1024
 
+// 0, 1:
+typedef enum { false, true } bool ;
 
 // Determines the number of elements of specified array:
 #define NUM_OF(x) (sizeof(x) / sizeof *(x))
@@ -63,6 +65,17 @@ typedef enum { UNKNOWN_TYPE, INTEGER, FLOAT } cell_type ;
 
 
 ERL_NIF_TERM error_tuple( ErlNifEnv* env, char* reason ) ;
+
+
+/*
+ * Converts specified Erlang-level float into a double written in specified
+ * C-level array, managing the mapping of infinite and nan values.
+ *
+ * Returns whether the operation succeeded.
+ *
+ */
+bool convert_float_value_to_c( ERL_NIF_TERM floatTerm, double* target,
+  ErlNifEnv* env ) ;
 
 int convert_array_to_nif_array( ErlNifEnv* env, hsize_t size, hsize_t *arr_from,
   ERL_NIF_TERM* arr_to ) ;

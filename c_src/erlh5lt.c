@@ -18,10 +18,19 @@
 
 /* Author contact: romanshestakov@yahoo.co.uk */
 
+/*
+ Forked on Thursday, August 6, 2015 by Olivier Boudeville
+ (olivier.boudeville@esperide.com)
+*/
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "hdf5.h"
 #include "hdf5_hl.h"
+
 #include "erl_nif.h"
 #include "dbg.h"
 #include "erlhdf5.h"
@@ -30,8 +39,9 @@
 // H5LT
 
 
-// Signature:
-static int unpack_int_list(ErlNifEnv* env, ERL_NIF_TERM* list, int* data);
+// Forward declarations:
+
+static int unpack_int_list( ErlNifEnv* env, ERL_NIF_TERM* list, int* data ) ;
 
 
 // Creates a new simple dataspace, and opens it for access:
@@ -214,7 +224,7 @@ ERL_NIF_TERM h5lt_read_dataset_double( ErlNifEnv* env, int argc,
   // Get dataset information:
   hsize_t * dims = enif_alloc( ndims * sizeof( hsize_t ) ) ;
 
-  check( ! H5LTget_dataset_info( file_id, ds_name, dims, NULL, NULL),
+  check( ! H5LTget_dataset_info( file_id, ds_name, dims, NULL, NULL ),
 	"Failed to get information about dataset." ) ;
 
   // Finds out the total number of values in the dataset from the dimensions:
@@ -227,10 +237,14 @@ ERL_NIF_TERM h5lt_read_dataset_double( ErlNifEnv* env, int argc,
 	n_values = n_values * dims[i] ;
   }
 
+  //printf( "Allocating space for %llu doubles.", n_values ) ;
+
   // Allocates the corresponding space to hold the dataset values:
   double * data = enif_alloc( n_values * sizeof( double ) ) ;
 
-  // Reads that dataset:
+  check( data != NULL, "Buffer allocation failed" ) ;
+
+   // Reads that dataset:
   check( ! H5LTread_dataset_double( file_id, ds_name, data ),
 	"Failed to read dataset." ) ;
 

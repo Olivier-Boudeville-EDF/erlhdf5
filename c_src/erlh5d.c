@@ -34,7 +34,7 @@
 
 #include "dbg.h"
 
-// For cell_type and all:
+// For cell_type, bool and all:
 #include "erlhdf5.h"
 
 
@@ -67,10 +67,6 @@ struct DataDescriptor
   ERL_NIF_TERM error_term ;
 
 } ;
-
-
-// 0, 1:
-typedef enum { false, true } bool ;
 
 
 // Forward declarations:
@@ -670,7 +666,6 @@ cell_type detect_cell_type( ERL_NIF_TERM term, ErlNifEnv* env )
    */
 
   int integer_value ;
-  double floating_point_value ;
 
   if ( enif_get_int( env, term, &integer_value ) )
   {
@@ -679,19 +674,31 @@ cell_type detect_cell_type( ERL_NIF_TERM term, ErlNifEnv* env )
 	return INTEGER ;
 
   }
-  else if ( enif_get_double( env, term, &floating_point_value ) )
+
+  double floating_point_value ;
+
+  if ( enif_get_double( env, term, &floating_point_value ) )
   {
 
 	//printf( "Detected float (double) %f.\n", floating_point_value ) ;
 	return FLOAT ;
 
   }
-  else
-  {
 
-	 return UNKNOWN_TYPE ;
+  // Last possibility: a 'nan' or 'inf' atom:
 
-  }
+  char atom_string[ 4 ] ;
+
+  if ( enif_get_atom( env, term, atom_string, 4, ERL_NIF_LATIN1 ) == 0 )
+	return UNKNOWN_TYPE ;
+
+  if ( strcmp( atom_string, "nan" ) == 0 )
+	return FLOAT ;
+
+  if ( strcmp( atom_string, "inf" ) == 0 )
+	return FLOAT ;
+
+  return UNKNOWN_TYPE ;
 
 }
 

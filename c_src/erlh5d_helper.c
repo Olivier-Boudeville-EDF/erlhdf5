@@ -26,6 +26,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// For isinf, isnan:
+#include <math.h>
+
 #include "hdf5.h"
 
 #include "erl_nif.h"
@@ -76,8 +79,28 @@ int convert_double_array_to_nif_array( ErlNifEnv* env, hsize_t size,
 
   for ( i = 0; i < size; i++ )
   {
-	//printf( "read: double -> nif: %f / %e\n", arr_from[i], arr_from[i]);
-	arr_to[i] = enif_make_double( env, arr_from[i] ) ;
+
+	//printf( "read: double -> nif: %f / %e\n", arr_from[i], arr_from[i] ) ;
+
+	if ( isinf( arr_from[i] ) )
+	{
+
+	  //printf( "Infinite value detected.\n" ) ;
+	  arr_to[i] = enif_make_atom( env, "inf" ) ;
+
+	}
+	else if ( isnan( arr_from[i] ) )
+	{
+
+	  //printf( "Nan value detected.\n" ) ;
+	  arr_to[i] = enif_make_atom( env, "nan" ) ;
+
+	}
+	else
+	{
+	  arr_to[i] = enif_make_double( env, arr_from[i] ) ;
+	}
+
   }
 
   return 0 ;
@@ -304,15 +327,12 @@ ERL_NIF_TERM write_floats_to_array( hid_t dataset_id, ErlNifEnv* env,
 
   ERL_NIF_TERM head, tail ;
 
-  // Go through each list element (float), and unpack it:
+  // Goes through each list element (float), and unpacks it:
   while ( enif_get_list_cell( env, float_list, &head, &tail ) )
   {
 
-	if ( ! enif_get_double( env, head, buffer_for_hdf + global ) )
-	{
-	  enif_free( buffer_for_hdf ) ;
-	  return error_tuple( env, "Cell does not contain a double value" ) ;
-	}
+	if ( ! convert_float_value_to_c( head, buffer_for_hdf + global, env ) )
+	  return error_tuple( env, "Unable to convert float to C double" ) ;
 
 	//printf( "write element =%f\n", *( buffer_for_hdf + global ) );
 
@@ -349,6 +369,48 @@ ERL_NIF_TERM write_floats_to_array( hid_t dataset_id, ErlNifEnv* env,
 }
 
 
+
+/*
+ * Converts specified Erlang-level float into a double written in specified
+ * C-level array, managing the mapping of infinite and nan values.
+ *
+ * Returns whether the operation succeeded.
+ *
+ */
+bool convert_float_value_to_c( ERL_NIF_TERM floatTerm, double * target,
+  ErlNifEnv* env )
+{
+
+  if ( enif_get_double( env, floatTerm, target ) )
+  {
+	return true ;
+  }
+
+  // We expect just null-terminated 'nan' or 'inf' here:
+  char atom_string[ 4 ] ;
+
+  if ( enif_get_atom( env, floatTerm, atom_string, 4, ERL_NIF_LATIN1 ) == 0 )
+	return false ;
+
+  if ( strcmp( atom_string, "nan" ) == 0 )
+  {
+
+	*target = NAN ;
+	return true ;
+
+  }
+
+  if ( strcmp( atom_string, "inf" ) == 0 )
+  {
+
+	*target = INFINITY ;
+	return true ;
+
+  }
+
+  return false ;
+
+}
 
 
 /*
@@ -405,12 +467,9 @@ ERL_NIF_TERM write_float_tuples_to_array( hid_t dataset_id, ErlNifEnv* env,
 	for( i = 0; i < tuple_size; i++ )
 	{
 
-	  if ( ! enif_get_double( env, tuple_elements[i],
-		  buffer_for_hdf + global ) )
-	  {
-		enif_free( buffer_for_hdf ) ;
-		return error_tuple( env, "Cell does not contain a double value" ) ;
-	  }
+	  if ( ! convert_float_value_to_c( tuple_elements[i], 
+		  buffer_for_hdf + global, env ) )
+		return error_tuple( env, "Unable to convert float to C double" ) ;
 
 	  //printf( "write element =%f\n", *( buffer_for_hdf + global ) );
 
