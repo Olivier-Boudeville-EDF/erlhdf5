@@ -51,8 +51,12 @@
 
 
 % H5LT, about HDF5 Lite:
--export( [ h5lt_make_dataset/5, h5lt_read_dataset_int/2,
-		   h5lt_read_dataset_double/2, h5ltget_dataset_ndims/2,
+-export( [ h5lt_make_dataset/5,
+
+		   h5lt_read_dataset_int/2, h5lt_read_dataset_double/2,
+		   h5lt_read_dataset_string/2,
+
+		   h5ltget_dataset_ndims/2,
 		   h5ltget_dataset_info/3 ] ).
 
 
@@ -451,6 +455,14 @@ h5lt_read_dataset_int( _Handle, _DatasetName ) ->
 -spec h5lt_read_dataset_double( file_handle(), dataset_name() ) ->
 								   { 'ok', [ float() ] } | error().
 h5lt_read_dataset_double( _Handle, _DatasetName ) ->
+	nif_error( ?LINE ).
+
+
+% Reads specified string dataset from specified file.
+%
+-spec h5lt_read_dataset_string( file_handle(), dataset_name() ) ->
+								   { 'ok', [ string() ] } | error().
+h5lt_read_dataset_string( _Handle, _DatasetName ) ->
 	nif_error( ?LINE ).
 
 

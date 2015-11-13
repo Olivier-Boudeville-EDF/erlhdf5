@@ -176,6 +176,7 @@ static ErlNifFunc nif_funcs[] =
   { "h5lt_make_dataset",          5, h5lt_make_dataset },
   { "h5lt_read_dataset_int",      2, h5lt_read_dataset_int },
   { "h5lt_read_dataset_double",   2, h5lt_read_dataset_double },
+  { "h5lt_read_dataset_string",   2, h5lt_read_dataset_string },
   { "h5ltget_dataset_ndims",      2, h5ltget_dataset_ndims },
   { "h5ltget_dataset_info",       3, h5ltget_dataset_info }
 

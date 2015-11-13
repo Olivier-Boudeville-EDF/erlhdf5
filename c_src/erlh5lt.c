@@ -271,9 +271,120 @@ ERL_NIF_TERM h5lt_read_dataset_double( ErlNifEnv* env, int argc,
   if ( data )
 	enif_free( data ) ;
 
-  return error_tuple( env, "Cannot read long dataset" ) ;
+  return error_tuple( env, "Cannot read double dataset" ) ;
 
 }
+
+
+
+/*
+ * Reads specified native string dataset from specified file.
+ *
+ * -spec h5lt_read_dataset_string( file_handle(), DatasetName::string() ) ->
+ *                 { 'ok', [ string() ] } | error().
+ *
+ */
+ERL_NIF_TERM h5lt_read_dataset_string( ErlNifEnv* env, int argc,
+  const ERL_NIF_TERM argv[] )
+{
+
+  check( argc == 2, "Incorrect number of arguments" ) ;
+
+  hid_t file_id ;
+  check( enif_get_int( env, argv[0], &file_id ),
+	"Cannot get file handle from argv" ) ;
+
+  char ds_name[ MAXBUFLEN ] ;
+
+  check( enif_get_string( env, argv[1], ds_name, sizeof(ds_name),
+	  ERL_NIF_LATIN1 ), "Cannot get the name of dataset from argv" ) ;
+
+  // Get the dimensions of this dataset:
+  int ndims ;
+
+  check( ! H5LTget_dataset_ndims( file_id, ds_name, &ndims ),
+	"Failed to determine dataspace dimensions." ) ;
+
+  //printf( "ndims: %i\n", ndims ) ;
+
+  // Get dataset information:
+  hsize_t * dims = enif_alloc( ndims * sizeof( hsize_t ) ) ;
+
+  H5T_class_t class_id ;
+
+  //size_t cell_size ;
+
+  check( ! H5LTget_dataset_info( file_id, ds_name, dims, &class_id,
+	  NULL /* &cell_size */ ), "Failed to get information about dataset." ) ;
+
+  // 3 is H5T_STRING: printf( "class: %i\n", class_id ) ;
+
+  check( class_id == H5T_STRING, "Not a dataset string" ) ;
+
+  // size_of( char * ): printf( "type size: %lu\n", cell_size ) ;
+
+  // Finds out the total number of values in the dataset from the dimensions:
+  hsize_t n_values = 1 ;
+
+  int i ;
+
+  for ( i = 0; i < ndims; i++ )
+  {
+	n_values = n_values * dims[i] ;
+  }
+
+  //printf( "%llu strings will be retrieved.", n_values ) ;
+
+  char ** string_arr = enif_alloc( sizeof(char * ) * n_values ) ;
+
+  check( string_arr != NULL, "String buffer allocation failed" ) ;
+
+   // Reads that dataset:
+  check( ! H5LTread_dataset_string( file_id, ds_name, (char *) string_arr ),
+	"Failed to read dataset." ) ;
+
+
+  //for ( i=0; i < n_values; i++ )
+  //	printf( "#%i: %s\n", i, string_arr[i] ) ;
+
+  /*
+   * Preparing the (flat) list that will contain them by creating its string
+   * elements:
+   */
+  ERL_NIF_TERM * string_terms = enif_alloc(
+	sizeof( ERL_NIF_TERM ) * n_values ) ;
+
+  check( string_terms != NULL, "Term buffer allocation failed" ) ;
+
+  for ( i=0; i < n_values; i++ )
+	string_terms[i] = enif_make_string( env, string_arr[i], ERL_NIF_LATIN1 ) ;
+
+  // Creates the list out of this term array:
+  ERL_NIF_TERM string_list = enif_make_list_from_array( env, string_terms,
+	n_values ) ;
+
+  // Cleanup:
+  enif_free( dims ) ;
+  enif_free( string_arr ) ;
+  enif_free( string_terms ) ;
+
+  return enif_make_tuple2( env, atom_ok, string_list ) ;
+
+
+ error:
+  if ( dims )
+	enif_free( dims ) ;
+
+  if ( string_arr )
+	enif_free( string_arr ) ;
+
+  if ( string_terms )
+	enif_free( string_terms ) ;
+
+  return error_tuple( env, "Cannot read string dataset" ) ;
+
+}
+
 
 
 // Determines the dimensionality of a dataspace.
